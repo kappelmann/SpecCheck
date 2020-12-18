@@ -19,6 +19,7 @@ val selectL : 'a list -> 'a gen
 val chooseL : 'a gen list -> 'a gen
 val chooseL' : (int * 'a gen) list -> 'a gen
 val filter : ('a -> bool) -> 'a gen -> 'a gen
+val shuffle : 'a list -> 'a list gen
 
 val zip : ('a gen * 'b gen) -> ('a * 'b) gen
 val zip3 : ('a gen * 'b gen * 'c gen) -> ('a * 'b * 'c) gen
@@ -106,6 +107,14 @@ fun filter p gen r =
   in
     loop (gen r)
   end
+
+fun shuffle [] r = ([],r)
+  | shuffle (x::xs) r =
+    let val (index,r) = Random.range_int (0, length (x::xs) - 1) r
+        val (xs,r) = shuffle xs r
+    in
+    (take index xs @ [x] @ drop index xs, r)
+    end
 
 fun list flip g r =
   case flip r of
