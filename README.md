@@ -15,7 +15,7 @@ Preferred usage:
   * name is the shown name of the test
   * prop is the property to be tested. See property.ML
 
-Examples can be found in tester.ML and test.thy here: https://gitlab.lrz.de/ga85wir/bachelorthesis/-/blob/master/src/tester.ML
+Examples can be found in tester.ML and test.thy here: https://gitlab.lrz.de/ga85wir/bachelorthesis/
   
 
 Alternative usage which does not require explicit generators but prevents typechecking and referring to code defined outside of the test:
