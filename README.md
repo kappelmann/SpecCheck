@@ -1,21 +1,32 @@
 This is a Quickcheck tool for Isabelle/ML.
 
-Authors
+## Authors
+- Lukas Bulwahn
+- Nicolai Schaffroth
+- Sebastian Willenbrink
 
-  Lukas Bulwahn
-  Nicolai Schaffroth
-
-Quick Usage
-
-  - Import Spec_Check.thy in your development
-  - Look at examples in Examples.thy
-  - write specifications with the ML invocation
-      check_property "ALL x. P x"
+## Quick Usage
+Preferred usage:
+- Import Spec_Check.thy into your environment
+- Write specifications using the ML invocation: "checkGen ctxt (gen, printer) (name, prop)" where
+  * ctxt is the desired context
+  * gen is the random value generator used for the test. See generator.ML
+  * printer converts values into strings to show the failing inputs
+  * name is the shown name of the test
+  * prop is the property to be tested. See property.ML
+Examples can be found in tester.ML and test.thy here: https://gitlab.lrz.de/ga85wir/bachelorthesis/-/blob/master/src/tester.ML
+  
+Alternative usage which does not require generators but prevents typechecking and referring to code defined outside of the test:
+- Import Spec_Check.thy in your development
+- write specifications with the ML invocation: `check_property "ALL x. P x"` where `P x` is ML code evaluating to a boolean
+Examples can be found in Examples.thy
       
+## Dependency Graph      
 ![Dependency Graph](./dependencies.svg)
+
 Update graphic with: "dot -Tsvg dependencies.dot -o dependencies.svg"
 
-Notes
+## Notes
 
 Our specification-based testing tool originated from Christopher League's
 QCheck tool for SML (cf. https://github.com/league/qcheck). As Isabelle
@@ -35,14 +46,14 @@ Word.word and others.
 4. Isabelle has special naming conventions and documentation of source
 code is only minimal to avoid parroting.
 
-Next steps:
+## Next steps:
   - Remove all references and store the neccessary random seed in the
     Isabelle's context.
   - Simplify some existing random generators.
     The original ones from Christopher League are so complicated to
     support many integer types uniformly.
 
-License
+## License
 
   The source code originated from Christopher League's QCheck, which is
   licensed under the 2-clause BSD license. The current source code is
