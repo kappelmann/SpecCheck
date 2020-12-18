@@ -1,0 +1,20 @@
+digraph G {
+        Gen_Base -> Random
+        Gen_Datatypes -> Random
+        Gen_Datatypes -> Gen_Base
+        Gen_Term -> Random
+        Gen_Term -> Gen_Base
+        Gen_Term -> Gen_Datatypes
+        Generator -> Gen_Base
+        Generator -> Gen_Datatypes
+        Generator -> Gen_Term
+        Spec_Check -> Property
+        Spec_Check -> Config
+        Spec_Check -> Generator
+        Spec_Check -> Gen_Construction
+        Gen_Construction -> Generator
+        Gen_Construction -> Property
+        Output_Style -> Property
+        Output_Style -> Spec_Check
+        Output_Style -> Config
+}
