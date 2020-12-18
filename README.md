@@ -14,11 +14,14 @@ Preferred usage:
   * printer converts values into strings to show the failing inputs
   * name is the shown name of the test
   * prop is the property to be tested. See property.ML
+
 Examples can be found in tester.ML and test.thy here: https://gitlab.lrz.de/ga85wir/bachelorthesis/-/blob/master/src/tester.ML
   
+
 Alternative usage which does not require generators but prevents typechecking and referring to code defined outside of the test:
 - Import Spec_Check.thy in your development
 - write specifications with the ML invocation: `check_property "ALL x. P x"` where `P x` is ML code evaluating to a boolean
+
 Examples can be found in Examples.thy
       
 ## Dependency Graph      
