@@ -18,7 +18,7 @@ Preferred usage:
 Examples can be found in tester.ML and test.thy here: https://gitlab.lrz.de/ga85wir/bachelorthesis/-/blob/master/src/tester.ML
   
 
-Alternative usage which does not require generators but prevents typechecking and referring to code defined outside of the test:
+Alternative usage which does not require explicit generators but prevents typechecking and referring to code defined outside of the test:
 - Import Spec_Check.thy in your development
 - write specifications with the ML invocation: `check_property "ALL x. P x"` where `P x` is ML code evaluating to a boolean
 
