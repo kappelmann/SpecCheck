@@ -1,13 +1,40 @@
-
+(* Implements generators for terms and their types *)
 signature GEN_TERM = sig
   include GEN_BASE
-  (* more generators *)
-  val term : int -> term gen
+
+(* "term_fol (freq_bound, freq_free, freq_var) avg_args num_sym" returns a random generator for terms
+  freq_X specifies the distribution of symbols (Bound, Free, Var, Const) in the term.
+  Sum of frequencies should be \<le> 1 and each frequency should be within [0;1]
+  Frequencies of constants are calculated, i.e. freq_const = 1 - freq_X.
+  avg_args specifies the number of arguments of every function.
+  num_sym specifies the upper bound on the amount of symbols. Term may contain less symbols *)
   val term_fol : real * real * real -> int -> int -> term gen
-  val term_fol_structure : int -> int -> term gen
-  val term_fol_map : real * real * real -> term -> term gen
-  val term_det : (int * int * 'a -> term * int * 'a) -> 'a -> term
+
+(* "term_det f init_state" where "f height index state" returns "(symbol, num_args, new_state)"
+  generates a term deterministically by applying f to every node andd expanding that node depending
+  on the num_args that f returns.
+  Traversal is: function \<rightarrow> first argument \<rightarrow> ... \<rightarrow> last argument
+  This is later transformed to the Isabelle representation of ((f $ x) $ y) $ z
+  See graphic in repository for more details.
+  
+  Arguments of f:
+  height describes the distance from the root. Starts at 0
+  index describes the !GLOBAL! index in that layer. Starts at 1.
+    The left subtree influences the right subtree!
+  state is passed according to the above traversal
+  
+  Return value of f:
+  symbol is the function to which the arguments are generated next. Symbols are terms in Isabelle!
+  num_args specifies how many arguments are required for the symbol. 0 to terminate this subtree
+  new_state is passed according to the above traversal
+  *)
+  val term_det : (int -> int -> 'a -> term * int * 'a) -> 'a -> term
+
+(* See above. f now takes a (Symbol * index_of_arg) list which specifies the path from the root to
+  the current node *)
   val term_det_path : ((term * int) list -> 'a -> term * int * 'a) -> 'a -> term
+
+(* Various helper functions *)
   val free : int -> term gen
   val var : int -> term gen
   val const : int -> term gen
@@ -41,19 +68,6 @@ fun typ n =
   in
     if n = 0 then chooseL [tfree, tvar]
     else chooseL [type' (n div 2), tfree, tvar]
-  end;
-
-fun term n =
-  let
-    val const = map Const (zip (const_string, typ 10))
-    val free = map Free (zip (var_string, typ 10))
-    val var = map Var (zip (zip (var_string, index), typ 10))
-    val bound = map Bound bound_index
-    fun abs m = map Abs (zip3 (var_string, typ 10, term m))
-    fun app m = map (op $) (zip (term m, term m))
-  in
-    if n = 0 then chooseL [const, free, var, bound]
-    else chooseL [const, free, var, bound, abs (n - 1), app (n div 2)]
   end;
 
 datatype 'a node = Node of 'a * 'a node list
