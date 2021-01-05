@@ -14,10 +14,17 @@ type ('a, 'b) reader = 'b -> ('a * 'b) option
 val lift : 'a -> 'a gen
 val select : 'a vector -> 'a gen
 val choose : 'a gen vector -> 'a gen
-val choose' : (int * 'a gen) vector -> 'a gen
+val choose' : (int * 'a gen) vector -> 'a gen (* TODO obsolete? Very bad performance for large numbers *)
+(* Choose based on weight of generators. Total of weights need not be 1.0, therefore:
+  chooseW [(1.0,x),(3.0,y)] == chooseW [(0.25,x),(0.75,y)] *)
+val chooseW : (real * 'a gen) vector -> 'a gen
+
+(* Copy of above with list instead of vector *)
 val selectL : 'a list -> 'a gen
 val chooseL : 'a gen list -> 'a gen
 val chooseL' : (int * 'a gen) list -> 'a gen
+val chooseWL : (real * 'a gen) list -> 'a gen
+
 val filter : ('a -> bool) -> 'a gen -> 'a gen
 val shuffle : 'a list -> 'a list gen
 
@@ -72,19 +79,49 @@ type ('a, 'b) reader = 'b -> ('a * 'b) option
 
 fun lift obj r = (obj, r)
 
-local (* Isabelle does not use vectors? *)
-  fun explode ((freq, gen), acc) =
-    List.tabulate (freq, fn _ => gen) @ acc
+(* Isabelle does not use vectors? *)
+fun choose v r =
+  let
+    val (i, r) = Random.range_int (0, Vector.length v - 1) r
+  in
+  Vector.sub (v, i) r
+  end
+
+fun choose' v =
+  let
+    fun explode ((freq, gen), acc) = List.tabulate (freq, fn _ => gen) @ acc
+  in
+  choose (Vector.fromList (Vector.foldr explode [] v))
+  end
+
+local
+datatype ('a,'b) either = Left of 'a | Right of 'b
 in
-  fun choose v r =
-    let val (i, r) = Random.range_int (0, Vector.length v - 1) r
-    in Vector.sub (v, i) r end
-  fun choose' v = choose (Vector.fromList (Vector.foldr explode [] v))
-  fun select v = choose (Vector.map lift v)
+fun chooseW (v : (real * 'a gen) vector) r =
+  let
+    val weight_total = Vector.foldl (fn ((freq,_),acc) => freq + acc) 0.0 v
+    fun selectGen _ (_,Left gen) = Left gen
+      | selectGen rand ((weight,gen),Right acc) =
+      let val acc = acc + weight
+      in
+      if rand < acc
+      then Left gen
+      else Right acc      
+      end
+    val (threshhold,r) = Random.range_real (0.0,weight_total) r
+    val gen = case Vector.foldl (selectGen threshhold) (Right 0.0) v of
+        Left gen => gen
+      | Right _ => raise Fail "Error in chooseF"
+  in
+  gen r
+  end
 end
+
+fun select v = choose (Vector.map lift v)
 
 fun chooseL l = choose (Vector.fromList l)
 fun chooseL' l = choose' (Vector.fromList l)
+fun chooseWL l = chooseW (Vector.fromList l)
 fun selectL l = select (Vector.fromList l)
 
 fun zip (g1, g2) = g1 #-> (fn x1 => g2 #-> (fn x2 => pair (x1, x2)))

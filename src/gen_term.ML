@@ -2,13 +2,26 @@
 signature GEN_TERM = sig
   include GEN_BASE
 
-(* "term_fol (freq_bound, freq_free, freq_var) avg_args num_sym" returns a random generator for terms
-  freq_X specifies the distribution of symbols (Bound, Free, Var, Const) in the term.
-  Sum of frequencies should be \<le> 1 and each frequency should be within [0;1]
-  Frequencies of constants are calculated, i.e. freq_const = 1 - freq_X.
-  avg_args specifies the number of arguments of every function.
-  num_sym specifies the upper bound on the amount of symbols. Term may contain less symbols *)
-  val term_fol : real * real * real -> int -> int -> term gen
+(* Symbol and type generators
+  symbols have no unique type but are a subset of term, therefore the sym_gens have type "term gen" *)
+  val free : int -> term gen
+  val var : int -> term gen
+  val const : int -> term gen
+  val typ : int -> typ gen
+
+(* def_sym_gen (weight_bound, weight_free, weight_var, weight_const) num_args
+  The weights specify the ratio of symbols (Bound, Free, Var, Const) in relation to each other in the term.
+  Sum of weights need not be \<le> 1 and each weight can take arbitrary values. *)
+  val def_sym_gen : (real * real * real * real) -> int -> term gen
+
+
+(* Term generators *)
+
+(* "term_fol symbol_gen avg_args num_sym" returns a random generator for terms
+  symbol_gen takes number of arguments and returns a symbol. TODO No state is passed around. Use ref instead.
+  avg_args specifies the average number of arguments of every function.
+  num_sym specifies the upper bound on the amount of symbols. Term may contain less symbols*)
+  val term_fol : (int -> term gen) -> int -> int -> term gen
 
 (* "term_det f init_state" where "f height index state" returns "(symbol, num_args, new_state)"
   generates a term deterministically by applying f to every node andd expanding that node depending
@@ -33,12 +46,6 @@ signature GEN_TERM = sig
 (* See above. f now takes a (Symbol * index_of_arg) list which specifies the path from the root to
   the current node *)
   val term_det_path : ((term * int) list -> 'a -> term * int * 'a) -> 'a -> term
-
-(* Various helper functions *)
-  val free : int -> term gen
-  val var : int -> term gen
-  val const : int -> term gen
-  val typ : int -> typ gen
 end
 
 structure Gen_Term =
@@ -46,7 +53,7 @@ struct
 
 open Gen_Datatypes
 
-(* types and terms *)
+(* Symbols and types *)
 
 val sort_string = selectL ["sort1", "sort2", "sort3"];
 val type_string = selectL ["TCon1", "TCon2", "TCon3"];
@@ -69,6 +76,40 @@ fun typ n =
     if n = 0 then chooseL [tfree, tvar]
     else chooseL [type' (n div 2), tfree, tvar]
   end;
+
+
+fun generic_type 0 = TVar (("'a", 0), [])
+  | generic_type n =
+      let val name = "'" ^ Char.toString (Char.chr (Char.ord #"a" + n)) in
+      Type ("fun", [TVar ((name,0), []), generic_type (n-1)]) end
+
+(* Implement more sophisticated selection. Remember already used variables and their types. *)
+fun name 0 r = string (lift 1, charRange (#"a", #"e")) r
+  | name n r = string (lift 1, charRange (#"f",#"j")) r |>> (fn str => str ^ @{make_string} n)
+fun var n r1 =
+  let val (r1,r2) = Random.split r1
+      val (r1,r3) = Random.split r1
+  in
+  (Var ((name n r1 |> fst, index r2 |> fst), generic_type n), r3)
+  end
+fun const n r1 =
+  let val (r1,r2) = Random.split r1 in
+  (Const (name n r1 |> fst, generic_type n), r2)
+  end
+fun free n r1 =
+  let val (r1,r2) = Random.split r1 in
+  (Free (name n r1 |> fst, generic_type n), r2)
+  end
+
+(* Construct a symbol generator by using chooseWL over a list of weights and generators *)
+fun def_sym_gen (weight_bound, weight_free, weight_var, weight_const) n =
+  chooseWL [(weight_bound, lift (Bound 0)),
+           (weight_free, free n),
+           (weight_var, var n),
+           (weight_const, const n)]
+
+
+(* Term generators *)
 
 datatype 'a node = Node of 'a * 'a node list
 
@@ -127,50 +168,17 @@ fun term_fol_structure avg_args num_sym r =
       fold (fn x => fn (acc,r) => term_fol_structure avg_args x r |>> (fn y => y :: acc)) args_size ([],r)
   in (Term.list_comb (func,args),r) end
 
-fun ifMult _ _ [] [x] = x
-  | ifMult rand cumulativ (f::fs) (x::xs) =
-    let val c = cumulativ + f in
-    if rand < c then x
-    else ifMult rand c fs xs
-    end
-  | ifMult _ _ _ _ = raise Fail "Invalid arguments to ifMult"
-
-fun generic_type 0 = TVar (("'a", 0), [])
-  | generic_type n =
-      let val name = "'" ^ Char.toString (Char.chr (Char.ord #"a" + n)) in
-      Type ("fun", [TVar ((name,0), []), generic_type (n-1)]) end
-
-(* Implement more sophisticated selection. Remember already used variables and their types. *)
-fun name 0 r = string (lift 1, charRange (#"a", #"e")) r
-  | name n r = string (lift 1, charRange (#"f",#"j")) r |>> (fn str => str ^ @{make_string} n)
-fun var n r1 =
-  let val (r1,r2) = Random.split r1
-      val (r1,r3) = Random.split r1
-  in
-  (Var ((name n r1 |> fst, index r2 |> fst), generic_type n), r3)
-  end
-fun const n r1 =
-  let val (r1,r2) = Random.split r1 in
-  (Const (name n r1 |> fst, generic_type n), r2)
-  end
-fun free n r1 =
-  let val (r1,r2) = Random.split r1 in
-  (Free (name n r1 |> fst, generic_type n), r2)
-  end
-
-fun term_fol_map (freq_bound, freq_free, freq_var) term r =
-  let fun aux bounds types term r =
-        let val (rand,r) = Random.real r
-            val ifMult = ifMult rand 0.0 [freq_bound, freq_free, freq_var]
-        in case term of
-            Bound n =>
-              ifMult [lift (Bound 0), free n, var n, const n] r
-          | fst$snd =>
-            let val (fst,r) = aux bounds types fst r
-                val (snd,r) = aux bounds types snd r
-            in (fst$snd, r) end
-          | _ => raise Fail "Term must only consist of $ and Bounds where index = number of args"
-        end
+fun term_fol_map sym_gen term r =
+  let
+    fun aux bounds types term r =
+      case term of
+        Bound n =>
+          sym_gen n r
+      | fst$snd =>
+        let val (fst,r) = aux bounds types fst r
+            val (snd,r) = aux bounds types snd r
+        in (fst$snd, r) end
+      | _ => raise Fail "Term must only consist of $ and Bounds where index = number of args"
   in aux [] [] term r end
 
 fun term_fol freq avg_args num_sym r =
