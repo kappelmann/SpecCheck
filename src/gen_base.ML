@@ -12,6 +12,7 @@ type ('a, 'b) co = 'a -> 'b gen -> 'b gen
 type ('a, 'b) reader = 'b -> ('a * 'b) option
 
 val lift : 'a -> 'a gen
+val gen_prop : ('a -> bool) -> 'a gen -> 'a gen (* Ensure that all generated values fulfill property *)
 val select : 'a vector -> 'a gen
 val choose : 'a gen vector -> 'a gen
 val choose' : (int * 'a gen) vector -> 'a gen (* TODO obsolete? Very bad performance for large numbers *)
@@ -61,6 +62,13 @@ struct
 (* Generators *)
 type 'a gen = Random.rand -> 'a * Random.rand
 
+fun gen_prop prop gen r =
+  let val (value,r) = gen r
+  in
+  if prop value
+  then (value,r)
+  else gen_prop prop gen r
+  end
 
 fun flip prob r = let val (x,r) = Random.real r in (x < prob, r) end
 
