@@ -12,9 +12,9 @@ digraph G {
         Spec_Check -> Configuration
         Spec_Check -> Generator
         Spec_Check -> Gen_Construction
+        Spec_Check -> Output_Style
         Gen_Construction -> Generator
         Gen_Construction -> Property
         Output_Style -> Property
-        Output_Style -> Spec_Check
         Output_Style -> Configuration
 }

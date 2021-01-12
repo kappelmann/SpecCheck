@@ -1,7 +1,7 @@
 signature CONFIGURATION =
 sig
   val gen_target : int Config.T
-  val gen_max : int Config.T
+  val max_discard_ratio : int Config.T
   val examples : int Config.T
   val sort_examples : bool Config.T
   val show_stats : bool Config.T
@@ -9,18 +9,18 @@ sig
   val style : string Config.T
 end
 
-structure Configuration =
+structure Configuration : CONFIGURATION =
 struct
 (* Number of generated inputs for test *)
 val gen_target = Attrib.setup_config_int \<^binding>\<open>spec_check_gen_target\<close> (K 100)
-(* How many inputs should be generated when some inputs are discarded because of properties *)
-val gen_max = Attrib.setup_config_int \<^binding>\<open>spec_check_gen_max\<close> (K 1000)
+(* Maximum number of discarded tests per successful test before giving up *)
+val max_discard_ratio = Attrib.setup_config_int \<^binding>\<open>spec_check_max_discard_ratio\<close> (K 10)
 (* Number of counterexamples shown *)
 val examples = Attrib.setup_config_int \<^binding>\<open>spec_check_examples\<close> (K 5)
 
-(* Sort counter examples by default *)
+(* Sort counter examples by size *)
 val sort_examples = Attrib.setup_config_bool \<^binding>\<open>spec_check_sort_examples\<close> (K true)
 val show_stats = Attrib.setup_config_bool \<^binding>\<open>spec_check_show_stats\<close> (K true)
 val column_width = Attrib.setup_config_int \<^binding>\<open>spec_check_column_width\<close> (K 22)
-val style = Attrib.setup_config_string \<^binding>\<open>spec_check_style\<close> (K "Perl")
+val style = Attrib.setup_config_string \<^binding>\<open>spec_check_style\<close> (K "Custom")
 end

@@ -7,55 +7,32 @@ Specification-based testing of ML programs with random values.
 
 signature SPEC_CHECK =
 sig
-
-  type output_style = Proof.context -> string ->
-    {status : string option * Property.result * (Property.stats  * string option list) -> unit,
-     finish: Property.stats * string option list -> unit}
-
-  val register_style : string -> output_style -> theory -> theory
-
-  val checkGen : Proof.context ->
-    'a Generator.gen * ('a -> string) option -> string * 'a Property.prop -> unit
+  include CONFIGURATION
+  val check_gen : Proof.context -> string ->
+                  'a Generator.gen -> ('a -> string) option ->
+                  'a Property.prop -> unit
+  val check_gen_shrink : Proof.context -> string ->
+                         'a Generator.gen -> ('a -> string) option -> ('a -> 'a list) ->
+                         'a Property.prop -> unit
 
   val check_property : Proof.context -> string -> unit
 end;
 
 structure Spec_Check : SPEC_CHECK =
 struct
-type ('a, 'b) reader = 'b -> ('a * 'b) option
-type 'a rep = ('a -> string) option
+open Configuration
 
-type output_style = Proof.context -> string ->
-  {status: string option * Property.result * (Property.stats * string option list) -> unit,
-   finish: Property.stats * string option list -> unit}
-
-fun limit ctxt gen = Generator.limit (Config.get ctxt Configuration.gen_max) gen
-
-structure Style = Theory_Data
-(
-  type T = output_style Symtab.table
-  val empty = Symtab.empty
-  val extend = I
-  fun merge data : T = Symtab.merge (K true) data
-)
-
-fun get_style ctxt =
-  let val name = Config.get ctxt Configuration.style in
-    (case Symtab.lookup (Style.get (Proof_Context.theory_of ctxt)) name of
-      SOME style => style ctxt
-    | NONE => error ("No style called " ^ quote name ^ " found"))
-  end
-
-fun register_style name style = Style.map (Symtab.update (name, style))
+fun limit ctxt gen = Generator.limit
+  (Config.get ctxt Configuration.gen_target * Config.get ctxt Configuration.max_discard_ratio) gen
 
 
 (* testing functions *)
 
-fun cpsCheck ctxt s0 shrink (next, show) (tag, prop) =
+fun check ctxt name s0 shrink next show prop =
   let
-    val apply_show = case show of NONE => (fn _ => NONE) | SOME f => SOME o f
+    fun apply_show x = case show of NONE => NONE | SOME f => SOME (f x)
 
-    val {status, finish} = get_style ctxt tag
+    val {status, finish} = Output_Style.get_style ctxt name
     fun status' (obj, result, (stats, badobjs)) =
       let
         val badobjs' = if Property.failure result then obj :: badobjs else badobjs
@@ -89,20 +66,17 @@ fun cpsCheck ctxt s0 shrink (next, show) (tag, prop) =
     fn stream => iter (next stream, (s0, []))
   end
 
-fun check' ctxt s0 = cpsCheck ctxt s0 (fn _ => [])
-fun check ctxt = check' ctxt Property.stats
-fun checks ctxt = cpsCheck ctxt Property.stats
+fun check_gen ctxt name gen show prop =
+  check ctxt name {count = 0, tags = [("__GEN", 0)]} (fn _ => [])
+    (limit ctxt gen) show prop Generator.stream
 
-fun checkGen ctxt (gen, show) (tag, prop) =
-  check' ctxt {count = 0, tags = [("__GEN", 0)]}
-    (limit ctxt gen, show) (tag, prop) Generator.stream
+fun check_gen_shrink ctxt name gen show shrink prop =
+  check ctxt name {count=0, tags=[("__GEN", 0)]} shrink
+    (limit ctxt gen) show prop Generator.stream
 
-fun checkGenShrink ctxt shrink (gen, show) (tag, prop) =
-  cpsCheck ctxt {count=0, tags=[("__GEN", 0)]} shrink
-    (limit ctxt gen, show) (tag, prop) Generator.stream
-
-fun checkOne ctxt show (tag, prop) obj =
-  check ctxt (List.getItem, show) (tag, prop) [obj]
+fun check_one ctxt name show prop obj =
+  check ctxt name Property.stats (fn _ => [])
+    List.getItem show prop [obj]
 
 (*call the compiler and pass resulting type string to the parser*)
 fun determine_type ctxt s =
