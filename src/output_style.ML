@@ -8,17 +8,19 @@ Output styles for presenting Spec_Check's results.
 structure Output_Style : sig end =
 struct
 
+open Configuration
+
 (* perl style *)
 
 val perl_style =
   Spec_Check.register_style "Perl"
     (fn ctxt => fn tag =>
       let
-        val target = Config.get ctxt Spec_Check.gen_target
-        val namew = Config.get ctxt Spec_Check.column_width
-        val sort_examples = Config.get ctxt Spec_Check.sort_examples
-        val show_stats = Config.get ctxt Spec_Check.show_stats
-        val limit = Config.get ctxt Spec_Check.examples
+        val target = Config.get ctxt gen_target
+        val namew = Config.get ctxt column_width
+        val sort_examples = Config.get ctxt sort_examples
+        val show_stats = Config.get ctxt show_stats
+        val limit = Config.get ctxt examples
 
         val resultw = 8
         val countw = 20
@@ -83,7 +85,7 @@ val cm_style =
     (fn ctxt => fn tag =>
       let
         fun pad wd = StringCvt.padLeft #"0" wd o Int.toString
-        val gen_target = Config.get ctxt Spec_Check.gen_target
+        val gen_target = Config.get ctxt gen_target
         val _ = writeln ("[testing " ^ tag ^ "... ")
         fun finish ({count, ...} : Property.stats, badobjs) =
           (case (count, badobjs) of

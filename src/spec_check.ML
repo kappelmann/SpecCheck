@@ -7,13 +7,6 @@ Specification-based testing of ML programs with random values.
 
 signature SPEC_CHECK =
 sig
-  val gen_target : int Config.T
-  val gen_max : int Config.T
-  val examples : int Config.T
-  val sort_examples : bool Config.T
-  val show_stats : bool Config.T
-  val column_width : int Config.T
-  val style : string Config.T
 
   type output_style = Proof.context -> string ->
     {status : string option * Property.result * (Property.stats  * string option list) -> unit,
@@ -29,18 +22,6 @@ end;
 
 structure Spec_Check : SPEC_CHECK =
 struct
-
-(* configurations *)
-
-val gen_target = Attrib.setup_config_int \<^binding>\<open>spec_check_gen_target\<close> (K 100)
-val gen_max = Attrib.setup_config_int \<^binding>\<open>spec_check_gen_max\<close> (K 400)
-val examples = Attrib.setup_config_int \<^binding>\<open>spec_check_examples\<close> (K 5)
-
-val sort_examples = Attrib.setup_config_bool \<^binding>\<open>spec_check_sort_examples\<close> (K true)
-val show_stats = Attrib.setup_config_bool \<^binding>\<open>spec_check_show_stats\<close> (K true)
-val column_width = Attrib.setup_config_int \<^binding>\<open>spec_check_column_width\<close> (K 22)
-val style = Attrib.setup_config_string \<^binding>\<open>spec_check_style\<close> (K "Perl")
-
 type ('a, 'b) reader = 'b -> ('a * 'b) option
 type 'a rep = ('a -> string) option
 
@@ -48,7 +29,7 @@ type output_style = Proof.context -> string ->
   {status: string option * Property.result * (Property.stats * string option list) -> unit,
    finish: Property.stats * string option list -> unit}
 
-fun limit ctxt gen = Generator.limit (Config.get ctxt gen_max) gen
+fun limit ctxt gen = Generator.limit (Config.get ctxt Configuration.gen_max) gen
 
 structure Style = Theory_Data
 (
@@ -59,7 +40,7 @@ structure Style = Theory_Data
 )
 
 fun get_style ctxt =
-  let val name = Config.get ctxt style in
+  let val name = Config.get ctxt Configuration.style in
     (case Symtab.lookup (Style.get (Proof_Context.theory_of ctxt)) name of
       SOME style => style ctxt
     | NONE => error ("No style called " ^ quote name ^ " found"))
@@ -94,7 +75,7 @@ fun cpsCheck ctxt s0 shrink (next, show) (tag, prop) =
 
     fun iter (NONE, (stats, badobjs)) = finish (stats, map apply_show badobjs)
       | iter (SOME (obj, stream), (stats, badobjs)) =
-        if #count stats >= Config.get ctxt gen_target then
+        if #count stats >= Config.get ctxt Configuration.gen_target then
           finish (stats, map apply_show badobjs)
         else
           let
