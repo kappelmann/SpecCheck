@@ -38,16 +38,12 @@ signature GEN_DATATYPES = sig
   val function_lazy : ''a gen * 'b gen -> (''a -> 'b) gen
   val unit : unit gen
   val ref' : 'a gen -> 'a Unsynchronized.ref gen
-
-  val stream : stream
 end
 
 structure Gen_Datatypes : GEN_DATATYPES =
 struct
 
 open Gen_Base
-
-val stream = start (Random.new())
 
 (* text *)
 

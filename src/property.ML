@@ -68,9 +68,9 @@ fun classify p tag = classify' (fn x => if p x then SOME tag else NONE)
 
 fun trivial cond = classify cond "trivial"
 
-fun test p =
+fun test p (input, stats) =
   wrap (fn (_, result, {tags, count}) =>
-    { tags = tags, count = if is_some result then count + 1 else count }) p
+    { tags = tags, count = if is_some result then count + 1 else count }) p (input, stats)
 
 val stats = { tags = [], count = 0 }
 

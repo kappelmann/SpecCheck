@@ -10,10 +10,10 @@ sig
   include CONFIGURATION
   val check_gen : Proof.context -> string ->
                   'a Generator.gen -> ('a -> string) option ->
-                  'a Property.prop -> unit
+                  'a Property.prop -> Random.rand -> unit
   val check_gen_shrink : Proof.context -> string ->
                          'a Generator.gen -> ('a -> string) option -> ('a -> 'a list) ->
-                         'a Property.prop -> unit
+                         'a Property.prop -> Random.rand -> unit
 
   val check_property : Proof.context -> string -> unit
 end;
@@ -22,61 +22,63 @@ structure Spec_Check : SPEC_CHECK =
 struct
 open Configuration
 
-fun limit ctxt gen = Generator.limit
-  (Config.get ctxt Configuration.gen_target * Config.get ctxt Configuration.max_discard_ratio) gen
-
-
 (* testing functions *)
 
-fun check ctxt name s0 shrink next show prop =
+fun check ctxt stats_initial seq shrink name show prop =
   let
     fun apply_show x = case show of NONE => NONE | SOME f => SOME (f x)
+    val print_result = Output_Style.get_style ctxt name
+    fun test_input input stats = Property.test prop (input, stats)
 
-    val {status, finish} = Output_Style.get_style ctxt name
-    fun status' (obj, result, (stats, badobjs)) =
+    fun try_shrink (obj, result) (stats, badobjs) =
       let
-        val badobjs' = if Property.failure result then obj :: badobjs else badobjs
-        val _ = status (apply_show obj, result, (stats, map apply_show badobjs'))
-      in badobjs' end
-
-    fun try_shrink (obj, result, stats') (stats, badobjs) =
-      let
-        fun is_failure s =
-          let val (result, stats') = Property.test prop (s, stats)
-          in if Property.failure result then SOME (s, result, stats') else NONE end
+        fun is_failure input =
+          if test_input input stats |> fst |> Property.failure
+          then SOME (input, result)
+          else NONE
       in
         case get_first is_failure (shrink obj) of
-          SOME (obj, result, stats') => try_shrink (obj, result, stats') (stats, badobjs)
-        | NONE => status' (obj, result, (stats', badobjs))
+          SOME (obj, result) => try_shrink (obj, result) (stats, badobjs)
+        | NONE => obj :: badobjs
       end
 
-    fun iter (NONE, (stats, badobjs)) = finish (stats, map apply_show badobjs)
-      | iter (SOME (obj, stream), (stats, badobjs)) =
-        if #count stats >= Config.get ctxt Configuration.gen_target then
-          finish (stats, map apply_show badobjs)
-        else
-          let
-            val (result, stats') = Property.test prop (obj, stats)
-            val badobjs' = if Property.failure result then
-                try_shrink (obj, result, stats') (stats, badobjs)
-              else
-                status' (obj, result, (stats', badobjs))
-          in iter (next stream, (stats', badobjs')) end
+    fun iter obj (stats, badobjs) =
+      (* Target fulfilled, skip the rest *)
+      if #count stats >= Config.get ctxt Configuration.gen_target
+      then (stats, badobjs)
+      else
+      (* Test obj, if failure then attempt to shrink *)
+        let
+          val (result, stats') = test_input obj stats
+          val badobjs' =
+            if Property.failure result
+            then try_shrink (obj, result) (stats, badobjs)
+            else badobjs
+        in (stats', badobjs') end
   in
-    fn stream => iter (next stream, (s0, []))
+    Generator.fold_seq iter seq (stats_initial, [])
+    |> tap (fn _ => writeln "1")
+    ||> map apply_show
+    |> tap (fn _ => writeln "2")
+    |> print_result
+    |> tap (fn _ => writeln "3")
+    handle x => (warning (@{make_string} x); Exn.reraise x)
   end
 
-fun check_gen ctxt name gen show prop =
-  check ctxt name {count = 0, tags = [("__GEN", 0)]} (fn _ => [])
-    (limit ctxt gen) show prop Generator.stream
+fun limit ctxt gen = Generator.seq_of_gen
+  (Config.get ctxt Configuration.gen_target * Config.get ctxt Configuration.max_discard_ratio) gen
 
-fun check_gen_shrink ctxt name gen show shrink prop =
-  check ctxt name {count=0, tags=[("__GEN", 0)]} shrink
-    (limit ctxt gen) show prop Generator.stream
+fun check_gen ctxt name gen show prop r =
+  check ctxt {count = 0, tags = [("__GEN", 0)]} (limit ctxt gen r) (fn _ => [])
+    name show prop
+
+fun check_gen_shrink ctxt name gen show shrink prop r =
+  check ctxt {count=0, tags=[("__GEN", 0)]} (limit ctxt gen r) shrink
+    name show prop
 
 fun check_one ctxt name show prop obj =
-  check ctxt name Property.stats (fn _ => [])
-    List.getItem show prop [obj]
+  check ctxt Property.stats (Seq.of_list [obj]) (fn _ => [])
+    name show prop
 
 (*call the compiler and pass resulting type string to the parser*)
 fun determine_type ctxt s =

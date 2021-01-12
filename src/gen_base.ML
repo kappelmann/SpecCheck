@@ -8,8 +8,6 @@ Basic random generators.
 signature GEN_BASE =
 sig
 type 'a gen = Random.rand -> 'a * Random.rand
-type ('a, 'b) co = 'a -> 'b gen -> 'b gen
-type ('a, 'b) reader = 'b -> ('a * 'b) option
 
 val lift : 'a -> 'a gen
 val gen_prop : ('a -> bool) -> 'a gen -> 'a gen (* Ensure that all generated values fulfill property *)
@@ -44,15 +42,17 @@ val list : bool gen -> 'a gen -> 'a list gen
 val option : bool gen -> 'a gen -> 'a option gen
 val vector : (int * (int -> 'a) -> 'b) -> int gen * 'a gen -> 'b gen
 
+type ('a, 'b) co = 'a -> 'b gen -> 'b gen
 val variant : (int, 'b) co
 val arrow : ('a, 'b) co * 'b gen -> ('a -> 'b) gen
 val cobool : (bool, 'b) co
 val colist : ('a, 'b) co -> ('a list, 'b) co
 val coopt : ('a, 'b) co -> ('a option, 'b) co
 
-type stream
-val start : Random.rand -> stream
-val limit : int -> 'a gen -> ('a, stream) reader
+(* Finite sequence of values *)
+val seq_of_gen : int -> 'a gen -> Random.rand -> 'a Seq.seq
+(* Why is no fold predefined for finite seq? Nor a halting version for infinite seq? *)
+val fold_seq : ('a -> 'b -> 'b) -> 'a Seq.seq -> 'b -> 'b
 
 end
 
@@ -187,20 +187,19 @@ fun vector tabulate (int, elem) r =
     (tabulate(n, g), !p)
   end
 
-type stream = Random.rand Unsynchronized.ref * int
-
-fun start r = (Unsynchronized.ref r, 0)
-
-fun limit max gen =
+fun seq_of_gen limit gen r =
   let
-    fun next (p, i) =
-      if i >= max then NONE
-      else
-        let val (x, r) = gen(!p)
-        in SOME(x, (p, i+1)) before p := r end
+    fun aux 0 _ _ _ = NONE
+      | aux limit gen r () =
+          let val (v,r) = gen r in
+          SOME (v, Seq.make (aux (limit - 1) gen r)) end
   in
-    next
+    Seq.make (aux limit gen r)
   end
+
+fun fold_seq f seq acc = case Seq.pull seq of
+    SOME (v,seq) => fold_seq f seq (f v acc)
+  | NONE => acc
 
 type ('a, 'b) co = 'a -> 'b gen -> 'b gen
 
