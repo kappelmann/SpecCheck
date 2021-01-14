@@ -57,12 +57,8 @@ fun check ctxt stats_initial seq shrink name show prop =
         in (stats', badobjs') end
   in
     Generator.fold_seq iter seq (stats_initial, [])
-    |> tap (fn _ => writeln "1")
     ||> map apply_show
-    |> tap (fn _ => writeln "2")
     |> print_result
-    |> tap (fn _ => writeln "3")
-    handle x => (warning (@{make_string} x); Exn.reraise x)
   end
 
 fun limit ctxt gen = Generator.seq_of_gen

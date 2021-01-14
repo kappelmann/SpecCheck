@@ -15,7 +15,7 @@ sig
 type rand
 val new : unit -> rand
 val next : rand -> rand
-(* Use this function for a semi-random generator *)
+(* Use this function for reproducible randomness. inputs \<le> 0 are mapped to 1 *)
 val deterministic_seed : int -> rand
 
 (* range_X (x,y) r returns a value in [x;y) *)
@@ -39,13 +39,14 @@ val m = 2147483647 (* 2^31 - 1 *)
 
 fun next seed = (seed * a) mod m
 
+(* Time is not sufficiently random when polled rapidly! *)
 fun new () =
   Time.now ()
   |> Time.toMicroseconds
   |> (fn x => Int.max(1,x mod m)) (* The seed must be within [1;m) *)
-  |> next (* Time is not sufficiently random when polled rapidly *)
+  |> next (* Not strictly necessary *)
 
-fun deterministic_seed i = i
+fun deterministic_seed r = Int.max(1, r mod m)
 
 fun range_int (min, max) r =
   if min > max then raise Fail ("Range_Int: " ^ @{make_string} min ^ " > " ^ @{make_string} max)
