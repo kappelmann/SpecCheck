@@ -12,5 +12,6 @@ ML_file \<open>gen_construction.ML\<close>
 ML_file \<open>configuration.ML\<close>
 ML_file \<open>output_style.ML\<close>
 ML_file \<open>spec_check.ML\<close>
+ML_file \<open>spec_check_comp.ML\<close>
 
 end
