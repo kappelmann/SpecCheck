@@ -187,7 +187,8 @@ let
         |> maybe_sort (* TODO When can this occur? *)
     in
       case badobjs of
-          [] => ()
+          [] => (warning "No counterexample. No random generator used?")
+        | [e] => (warning ("Counterexample:"); warning e)
         | es => (warning "Counterexamples:"; fold (fn x => fn _ => warning x) es ())
     end
   in
