@@ -11,67 +11,57 @@ sig
 type 'a pred = 'a -> bool
 type 'a prop
 val pred : 'a pred -> 'a prop
-val pred2 : ('a * 'b) pred -> 'b -> 'a  prop
+val pred2 : ('a * 'b) pred -> 'b -> 'a prop
 val implies : 'a pred * 'a prop -> 'a prop
 val ==> : 'a pred * 'a pred -> 'a prop
-val trivial : 'a pred -> 'a prop -> 'a prop
-val classify : 'a pred -> string -> 'a prop -> 'a prop
-val classify' : ('a -> string option) -> 'a prop -> 'a prop
 
 (*Results*)
-type result = bool option
-type stats = { tags : (string * int) list, count : int }
+datatype result = Result of bool | Discard | Exception of exn
+
+type stats = { count : int, generated : bool, timing : Timing.timing }
 val test : 'a prop -> 'a * stats -> result * stats
-val stats : stats
-val success : result pred
-val failure : result pred
+val empty_stats : bool -> stats
 
 end
 
 structure Property : PROPERTY =
 struct
 
-type result = bool option
-type stats = { tags : (string * int) list, count : int }
+datatype result = Result of bool | Discard | Exception of exn
+type stats = { count : int, generated : bool, timing : Timing.timing }
+fun empty_stats gen =
+  { count = 0, generated = gen,
+    timing = {cpu = Time.zeroTime, elapsed = Time.zeroTime, gc = Time.zeroTime} }
+
 type 'a pred = 'a -> bool
-type 'a prop = 'a * stats -> result * stats
+type 'a prop = 'a -> result
 
-fun success (SOME true) = true
-  | success _ = false
+fun apply f x =
+  Result (f x)
+  handle x => if Exn.is_interrupt x then Exn.reraise x else Exception x
 
-fun failure (SOME false) = true
-  | failure _ = false
-
-fun apply f x = (case try f x of NONE => SOME false | some => some)
-fun pred f (x,s) = (apply f x, s)
+fun pred f x = apply f x
 fun pred2 f z = pred (fn x => f (x, z))
 
-fun implies (cond, p) (x,s) = if cond x then p (x, s) else (NONE, s)
+fun implies (cond, prop) x =
+  if cond x
+  then prop x
+  else Discard
 
 fun ==> (p1, p2) = implies (p1, pred p2)
 
-fun wrap trans p (x,s) =
-  let val (result,s) = p (x,s)
-  in (result, trans (x, result, s)) end
+fun add_timings {elapsed = elapsed1, cpu = cpu1, gc = gc1} {elapsed = elapsed2, cpu = cpu2, gc = gc2} =
+  {elapsed = elapsed1 + elapsed2,
+   cpu = cpu1 + cpu2,
+   gc = gc1 + gc2}
 
-fun classify' f =
-  wrap (fn (x, result, {tags, count}) =>
-    { tags =
-        if is_some result then
-          (case f x of
-            NONE => tags
-          | SOME tag => AList.map_default (op =) (tag, 0) (fn c => c + 1) tags)
-        else tags,
-     count = count })
-
-fun classify p tag = classify' (fn x => if p x then SOME tag else NONE)
-
-fun trivial cond = classify cond "trivial"
-
-fun test p (input, stats) =
-  wrap (fn (_, result, {tags, count}) =>
-    { tags = tags, count = if is_some result then count + 1 else count }) p (input, stats)
-
-val stats = { tags = [], count = 0 }
+fun test prop (input, {count, generated, timing}) =
+  let
+    val (time, result) = Timing.timing (fn () => prop input) ()
+    val stats = {count = count + 1, generated = generated, timing = add_timings timing time}
+  in
+  (result,stats)
+  end
+  
 
 end

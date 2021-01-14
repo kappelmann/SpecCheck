@@ -6,10 +6,10 @@ Output styles for presenting Spec_Check's results.
 *)
 
 structure Output_Style : sig
-  type output_style = Proof.context -> string -> Property.stats * string option list -> unit
+  type output_style = Proof.context -> string -> Timing.timing -> Property.stats * string option list -> unit
 
   val register_style : string -> output_style -> theory -> theory
-  val get_style : Proof.context -> string -> Property.stats * string option list -> unit
+  val get_style : Proof.context -> string -> Timing.timing -> Property.stats * string option list -> unit
 end = struct
 
 open Configuration
@@ -17,7 +17,7 @@ open Configuration
 type ('a, 'b) reader = 'b -> ('a * 'b) option
 type 'a rep = ('a -> string) option
 
-type output_style = Proof.context -> string -> Property.stats * string option list -> unit
+type output_style = Proof.context -> string -> Timing.timing -> Property.stats * string option list -> unit
 
 
 structure Style = Theory_Data
@@ -40,7 +40,7 @@ fun register_style name style = Style.map (Symtab.update (name, style))
 
 (* perl style *)
 
-fun perl_style ctxt name (stats, badobjs) =
+fun perl_style ctxt name timing (stats, badobjs) =
   let
     val target = Config.get ctxt gen_target
     val namew = Config.get ctxt column_width
@@ -55,9 +55,9 @@ fun perl_style ctxt name (stats, badobjs) =
     val maybe_sort = if sort_examples then sort (int_ord o apply2 size) else I
 
     fun result ({count = 0, ...}, _) = "dubious"
-      | result ({count, tags}, badobjs) =
+      | result ({count, generated, ...}, badobjs) =
           if not (null badobjs) then "FAILED"
-          else if AList.defined (op =) tags "__GEN" andalso count < target then "dubious"
+          else if generated andalso count < target then "dubious"
           else "ok"
 
     fun ratio (0, _) = "(0/0 passed)"
@@ -70,20 +70,6 @@ fun perl_style ctxt name (stats, badobjs) =
       StringCvt.padRight #" " resultw (result (stats, badobjs)) ^
       StringCvt.padRight #" " countw (ratio (#count stats, length badobjs))
 
-    fun prtag count (tag, n) first =
-      if String.isPrefix "__" tag then ("", first)
-      else
-         let
-           val ratio = round ((real n / real count) * 100.0)
-         in
-           (((if first then "" else StringCvt.padRight #" " allw "\n") ^
-             StringCvt.padLeft #" " 3 (string_of_int ratio) ^ "% " ^ tag),
-           false)
-         end
-
-    fun prtags ({count, tags} : Property.stats) =
-      if show_stats then cat_lines (fst (fold_map (prtag count) tags true)) else ""
-
     fun err badobjs =
       case maybe_sort (take limit (map_filter I badobjs)) of
           [] => ()
@@ -91,7 +77,7 @@ fun perl_style ctxt name (stats, badobjs) =
 
   in
     if null badobjs
-    then writeln (update (stats, badobjs) ^ prtags stats)
+    then writeln (update (stats, badobjs))
     else (warning (update (stats, badobjs)); err badobjs)
   end
 
@@ -102,7 +88,7 @@ val _ = Theory.setup perl_style;
 
 (* CM style: meshes with CM output; highlighted in sml-mode *)
 
-fun cm_style ctxt name ({count, ...} : Property.stats, badobjs) =
+fun cm_style ctxt name timing ({count, ...} : Property.stats, badobjs) =
   let
     fun pad wd = StringCvt.padLeft #"0" wd o Int.toString
     val gen_target = Config.get ctxt gen_target
@@ -130,71 +116,63 @@ val _ = Theory.setup cm_style;
 
 (* Custom style *)
 
-fun custom_style ctxt name (stats, badobjs) =
-let
-  val target = Config.get ctxt gen_target
-  val sort_examples = Config.get ctxt sort_examples
-  val show_stats = Config.get ctxt show_stats
-  val limit = Config.get ctxt examples
-
-  val resultw = 8
-  val countw = 20
-  val allw = resultw + countw + 2
-
-  fun result ({count = 0, ...}, _) = "No Test"
-    | result ({count, tags}, badobjs) =
-        if not (null badobjs)
-        then "Failed"
-        else if AList.defined (op =) tags "__GEN" andalso count < target
-        then "Bad Gen"
-        else "Passed"
-
-  fun ratio (0, _) = "(0/0 passed)"
-    | ratio (count, 0) = "(" ^ string_of_int count ^ " passed)"
-    | ratio (count, n) =
-        "(" ^ string_of_int (count - n) ^ "/" ^ string_of_int count ^  " passed)"
-
-  fun update (stats, badobjs) =
-    StringCvt.padRight #" " resultw (result (stats, badobjs)) ^
-    StringCvt.padRight #" " countw (ratio (#count stats, length badobjs)) ^
-    name
-
-  (* TODO investigate this function further. First non-generator tag is printed? *)
-  fun prtag count (tag, n) first =
-    if String.isPrefix "__" tag
-    then ("", first)
-    else
-       let
-         val ratio = round ((real n / real count) * 100.0)
-       in
-         (((if first then "" else StringCvt.padRight #" " allw "\n") ^
-           StringCvt.padLeft #" " 3 (string_of_int ratio) ^ "% " ^ tag),
-         false)
-       end
-
-  fun prtags ({count, tags} : Property.stats) =
-    if show_stats
-    then fold_map (prtag count) tags true |> fst |> cat_lines
-    else ""
-
-  fun print_counter badobjs =
-    let
-      val maybe_sort = if sort_examples then sort (int_ord o apply2 size) else I
-      val badobjs =
-        badobjs
-        |> map_filter I
-        |> take limit
-        |> maybe_sort (* TODO When can this occur? *)
-    in
-      case badobjs of
-          [] => (warning "No counterexample. No random generator used?")
-        | [e] => (warning ("Counterexample:"); warning e)
-        | es => (warning "Counterexamples:"; fold (fn x => fn _ => warning x) es ())
-    end
+fun custom_style ctxt name total_time (stats, badobjs) =
+  let
+    val target = Config.get ctxt gen_target
+    val sort_examples = Config.get ctxt sort_examples
+    val show_stats = Config.get ctxt show_stats
+    val limit = Config.get ctxt examples
+  
+    val resultw = 8
+    val countw = 20
+    val timew = 20
+    val allw = resultw + countw + timew + 2
+  
+    fun result ({count = 0, ...}, _) = "No Test"
+      | result ({count, generated, ...}, badobjs) =
+          if not (null badobjs)
+          then "Failed"
+          else if generated andalso count < target
+          then "Bad Gen"
+          else "Passed"
+  
+    fun ratio (0, _) = "(0/0 passed)"
+      | ratio (count, 0) = "(" ^ string_of_int count ^ " passed)"
+      | ratio (count, n) =
+          "(" ^ string_of_int (count - n) ^ "/" ^ string_of_int count ^  " passed)"
+    
+    (* Print the time spent in the test function in relation to total time spent.
+       That includes generating test cases and overhead from the framework *)
+    fun time {cpu, elapsed, gc} =
+      "(" ^ Time.toString elapsed ^ "s / " ^ Time.toString (#elapsed total_time) ^ "s)"
+  
+    fun update (stats, badobjs) =
+      let val more_stats = if not show_stats then "" else
+            StringCvt.padRight #" " countw (ratio (#count stats, length badobjs)) ^
+            StringCvt.padRight #" " timew (time (#timing stats))
+      in
+      StringCvt.padRight #" " resultw (result (stats, badobjs)) ^ more_stats ^ name
+      end
+  
+    fun print_counter badobjs =
+      let
+        val maybe_sort = if sort_examples then sort (int_ord o apply2 size) else I
+        val badobjs =
+          badobjs
+          |> map_filter I
+          |> take limit
+          |> maybe_sort (* TODO When can this occur? *)
+      in
+        case badobjs of
+            [] => (warning "No counterexample. No random generator used?")
+          | [e] => (warning ("Counterexample:"); warning e)
+          | es => (warning "Counterexamples:"; fold (fn x => fn _ => warning x) es ())
+      end
+    val result = update (stats, badobjs)
   in
     if null badobjs
-    then writeln (update (stats, badobjs) ^ prtags stats)
-    else (warning (update (stats, badobjs)); print_counter badobjs)
+    then writeln result
+    else (warning result; print_counter badobjs)
   end
 
 val custom_style = register_style "Custom" custom_style
