@@ -1,3 +1,4 @@
+(* TODO untested *)
 signature SPEC_CHECK_COMP =
 sig
   val check_property : Proof.context -> string -> unit

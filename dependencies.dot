@@ -17,4 +17,6 @@ digraph G {
         Gen_Construction -> Property
         Output_Style -> Property
         Output_Style -> Configuration
+        Spec_Check_Comp -> Spec_Check
+        Spec_Check_Comp -> Gen_Construction
 }
