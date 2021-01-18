@@ -60,7 +60,7 @@ fun check ctxt stats_init name show seq shrink prop =
               Result true => badobjs
             | Discard => badobjs
             | Result false => try_shrink obj :: badobjs
-            | Exception exn => (warning "Exception raised during test:"; Runtime.exn_trace (fn () => raise exn))
+            | Exception exn => (warning ("Exception raised during test: " ^ name); Runtime.exn_trace (fn () => Exn.reraise exn))
         in (stats, badobjs) end
   in
     Timing.timing (fn () =>
