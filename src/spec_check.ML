@@ -72,7 +72,7 @@ fun check ctxt stats_init name show seq shrink prop =
 fun limit ctxt gen =
   Generator.seq_of_gen
     (Config.get ctxt Configuration.gen_target * Config.get ctxt Configuration.max_discard_ratio)
-    (fn i => if i <= 0 then NONE else SOME (i-1)) (K gen)
+    gen
 
 fun check_gen ctxt name gen show prop r =
   check ctxt (Property.empty_stats true) name show (limit ctxt gen r) (fn _ => [])

@@ -60,9 +60,15 @@ struct
 
 open Gen_Datatypes
 
-fun reuse gen perc state r =
-  let fun gen_stateful state r = chooseWL [(perc, selectL state), (1.0 - perc, gen)] r in
-  seq_of_gen state (fn x => SOME x) gen_stateful r
+fun reuse gen threshhold state r () =
+  let
+    val (random_perc,r) = Random.real r
+    val ((next,r),state) =
+      if random_perc < threshhold
+      then (selectL state r, state)
+      else let val (v,r) = gen r in ((v,r), v :: state) end
+  in
+  SOME (next, Seq.make (reuse gen threshhold state r))
   end  
 
 (* Symbols and types *)

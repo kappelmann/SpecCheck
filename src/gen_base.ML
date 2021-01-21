@@ -53,7 +53,7 @@ val coopt : ('a, 'b) co -> ('a option, 'b) co
    Pass initial state and state-update/next function
    New state is passed to gen, therefore sequence is:
    [gen (next state), gen (next (next state)), ...] until "next state" returns NONE *)
-val seq_of_gen : 'a -> ('a -> 'a option) -> ('a -> 'b gen) -> Random.rand -> 'b Seq.seq
+val seq_of_gen : int -> 'a gen -> Random.rand -> 'a Seq.seq
 (* Why is no fold predefined for finite seq? Nor a halting version for infinite seq? *)
 val fold_seq : ('a -> 'b -> 'b) -> 'a Seq.seq -> 'b -> 'b
 
@@ -190,17 +190,16 @@ fun vector tabulate (int, elem) r =
     (tabulate(n, g), !p)
   end
 
-fun seq_of_gen state next gen r =
+fun seq_of_gen limit gen r =
   let
-    fun aux state gen r () =
-      case next state of
-        NONE => NONE
-      | SOME state =>    
-          let val (v,r) = gen state r in
-          SOME (v, Seq.make (aux state gen r)) end
+    fun aux 0 _ _ _ = NONE
+      | aux limit gen r () =
+          let val (v,r) = gen r in
+          SOME (v, Seq.make (aux (limit - 1) gen r)) end
   in
-    Seq.make (aux state gen r)
+    Seq.make (aux limit gen r)
   end
+
 
 fun fold_seq f seq acc = case Seq.pull seq of
     SOME (v,seq) => fold_seq f seq (f v acc)
