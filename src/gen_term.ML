@@ -2,12 +2,19 @@
 signature GEN_TERM = sig
   include GEN_BASE
 
+  (* Reuse previously generated values. Pass a reuse-probability and an initial value list *)
+  val reuse : 'a gen -> real -> 'a list -> 'a gen
+
 (* Symbol and type generators
   symbols have no unique type but are a subset of term, therefore the sym_gens have type "term gen" *)
   val free : int -> term gen
   val var : int -> term gen
   val const : int -> term gen
   val typ : int -> typ gen
+
+  val free' : int -> term gen
+  val var' : int -> term gen
+  val const' : int -> term gen
 
 (* def_sym_gen (weight_bound, weight_free, weight_var, weight_const) num_args
   The weights specify the ratio of symbols (Bound, Free, Var, Const) in relation to each other in the term.
@@ -52,6 +59,11 @@ structure Gen_Term =
 struct
 
 open Gen_Datatypes
+
+fun reuse gen perc state r =
+  let fun gen_stateful state r = chooseWL [(perc, selectL state), (1.0 - perc, gen)] r in
+  seq_of_gen state (fn x => SOME x) gen_stateful r
+  end  
 
 (* Symbols and types *)
 
@@ -100,6 +112,10 @@ fun free n r1 =
   let val (r1,r2) = Random.split r1 in
   (Free (name n r1 |> fst, generic_type n), r2)
   end
+
+fun var' perc n = reuse (var n) perc []
+fun const' perc n = reuse (const n) perc []
+fun free' perc n = reuse (free n) perc []
 
 (* Construct a symbol generator by using chooseWL over a list of weights and generators *)
 fun def_sym_gen (weight_bound, weight_free, weight_var, weight_const) n =
