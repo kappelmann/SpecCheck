@@ -2,8 +2,8 @@
 signature GEN_TERM = sig
   include GEN_BASE
 
-  (* Reuse previously generated values. Pass a reuse-probability and an initial value list *)
-  val reuse : 'a gen -> real -> 'a list -> 'a gen
+  (* Reuse previously generated values. Pass a reuse-probability and an initial value list as state *)
+  val reuse : 'a gen -> real -> 'a list -> Random.rand -> 'a Seq.seq
 
 (* Symbol and type generators
   symbols have no unique type but are a subset of term, therefore the sym_gens have type "term gen" *)
@@ -12,14 +12,16 @@ signature GEN_TERM = sig
   val const : int -> term gen
   val typ : int -> typ gen
 
-  val free' : int -> term gen
-  val var' : int -> term gen
-  val const' : int -> term gen
+  val free' : real -> int -> Random.rand -> term Seq.seq
+  val var' : real -> int -> Random.rand -> term Seq.seq
+  val const' : real -> int -> Random.rand -> term Seq.seq
 
-(* def_sym_gen (weight_bound, weight_free, weight_var, weight_const) num_args
-  The weights specify the ratio of symbols (Bound, Free, Var, Const) in relation to each other in the term.
+(* def_sym_gen (weight_free, weight_var, weight_const) num_args
+  The weights specify the ratio of symbols (Free, Var, Const) in relation to each other in the term.
   Sum of weights need not be \<le> 1 and each weight can take arbitrary values. *)
-  val def_sym_gen : (real * real * real * real) -> int -> term gen
+  val def_sym_gen : (real * real * real) -> int -> term gen
+(* def_sym_seq requires an additional reuse probability *)
+  val def_sym_seq : (real * real * real) -> real -> int -> Random.rand -> term Seq.seq
 
 
 (* Term generators *)
@@ -35,7 +37,7 @@ signature GEN_TERM = sig
   on the num_args that f returns.
   Traversal is: function \<rightarrow> first argument \<rightarrow> ... \<rightarrow> last argument
   This is later transformed to the Isabelle representation of ((f $ x) $ y) $ z
-  See graphic in repository for more details.
+  See pdf in repository for more details.
   
   Arguments of f:
   height describes the distance from the root. Starts at 0
@@ -55,22 +57,25 @@ signature GEN_TERM = sig
   val term_det_path : ((term * int) list -> 'a -> term * int * 'a) -> 'a -> term
 end
 
-structure Gen_Term =
+structure Gen_Term : GEN_TERM =
 struct
 
 open Gen_Datatypes
 
-fun reuse gen threshhold state r () =
+local
+fun reuse_aux gen threshhold state r () =
   let
     val (random_perc,r) = Random.real r
     val ((next,r),state) =
-      if random_perc < threshhold
+      if random_perc < threshhold andalso not (null state)
       then (selectL state r, state)
       else let val (v,r) = gen r in ((v,r), v :: state) end
   in
-  SOME (next, Seq.make (reuse gen threshhold state r))
+  SOME (next, Seq.make (reuse_aux gen threshhold state r))
   end  
-
+in
+fun reuse gen threshhold state r = Seq.make (reuse_aux gen threshhold state r)
+end
 (* Symbols and types *)
 
 val sort_string = selectL ["sort1", "sort2", "sort3"];
@@ -102,21 +107,22 @@ fun generic_type 0 = TVar (("'a", 0), [])
       Type ("fun", [TVar ((name,0), []), generic_type (n-1)]) end
 
 (* Implement more sophisticated selection. Remember already used variables and their types. *)
-fun name 0 r = string (lift 1, charRange (#"a", #"e")) r
-  | name n r = string (lift 1, charRange (#"f",#"j")) r |>> (fn str => str ^ @{make_string} n)
+fun name prefix n r =
+  string (lift 5, charRange (#"a",#"z")) r
+  |>> (fn str => prefix ^ @{make_string} n ^ "_" ^ str)
 fun var n r1 =
   let val (r1,r2) = Random.split r1
       val (r1,r3) = Random.split r1
   in
-  (Var ((name n r1 |> fst, index r2 |> fst), generic_type n), r3)
+  (Var ((name "v" n r1 |> fst, index r2 |> fst), generic_type n), r3)
   end
 fun const n r1 =
   let val (r1,r2) = Random.split r1 in
-  (Const (name n r1 |> fst, generic_type n), r2)
+  (Const (name "c" n r1 |> fst, generic_type n), r2)
   end
 fun free n r1 =
   let val (r1,r2) = Random.split r1 in
-  (Free (name n r1 |> fst, generic_type n), r2)
+  (Free (name "f" n r1 |> fst, generic_type n), r2)
   end
 
 fun var' perc n = reuse (var n) perc []
@@ -124,12 +130,32 @@ fun const' perc n = reuse (const n) perc []
 fun free' perc n = reuse (free n) perc []
 
 (* Construct a symbol generator by using chooseWL over a list of weights and generators *)
-fun def_sym_gen (weight_bound, weight_free, weight_var, weight_const) n =
-  chooseWL [(weight_bound, lift (Bound 0)),
-           (weight_free, free n),
-           (weight_var, var n),
-           (weight_const, const n)]
+fun def_sym_gen (weight_free, weight_var, weight_const) n =
+  chooseWL [(weight_free, free n),
+            (weight_var, var n),
+            (weight_const, const n)]
 
+fun def_sym_seq (weight_free, weight_var, weight_const) prob n r =
+  let
+    fun aux state r () =
+      let
+        val (perc,r) = Random.range_real (0.0, weight_free + weight_var + weight_const) r
+        val index =
+          if perc < weight_free then 0
+          else if perc < weight_free + weight_var then 1
+          else 2
+        val (value,seq) = nth state index |> Seq.pull |> (fn SOME x => x)
+        val state = nth_map index (K seq) state
+      in                             
+      SOME (value, Seq.make (aux state r))
+      end
+    val ((r1,r2),(r3,r4)) = Random.split r |>> Random.split ||> Random.split
+  in
+  aux [free' prob n r1,
+       var' prob n r2,
+       const' prob n r3] r4
+  |> Seq.make
+  end
 
 (* Term generators *)
 

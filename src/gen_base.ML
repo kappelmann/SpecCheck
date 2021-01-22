@@ -12,6 +12,7 @@ type 'a gen = Random.rand -> 'a * Random.rand
 val lift : 'a -> 'a gen
 val gen_prop : ('a -> bool) -> 'a gen -> 'a gen (* Ensure that all generated values fulfill property *)
 val select : 'a vector -> 'a gen
+val selectW : (real * 'a) vector -> 'a gen
 val choose : 'a gen vector -> 'a gen
 val choose' : (int * 'a gen) vector -> 'a gen (* TODO obsolete? Very bad performance for large numbers *)
 (* Choose based on weight of generators. Total of weights need not be 1.0, therefore:
@@ -20,6 +21,7 @@ val chooseW : (real * 'a gen) vector -> 'a gen
 
 (* Copy of above with list instead of vector *)
 val selectL : 'a list -> 'a gen
+val selectWL : (real * 'a) list -> 'a gen
 val chooseL : 'a gen list -> 'a gen
 val chooseL' : (int * 'a gen) list -> 'a gen
 val chooseWL : (real * 'a gen) list -> 'a gen
@@ -54,8 +56,9 @@ val coopt : ('a, 'b) co -> ('a option, 'b) co
    New state is passed to gen, therefore sequence is:
    [gen (next state), gen (next (next state)), ...] until "next state" returns NONE *)
 val seq_of_gen : int -> 'a gen -> Random.rand -> 'a Seq.seq
-(* Why is no fold predefined for finite seq? Nor a halting version for infinite seq? *)
-val fold_seq : ('a -> 'b -> 'b) -> 'a Seq.seq -> 'b -> 'b
+(* Why is no fold predefined for finite seq? Nor a halting version for infinite seq?
+  first argument is the limit, if less than 0 limit is disabled. *)
+val fold_seq : int -> ('a -> 'b -> 'b) -> 'a Seq.seq -> 'b -> 'b
 
 end
 
@@ -129,11 +132,13 @@ fun chooseW (v : (real * 'a gen) vector) r =
 end
 
 fun select v = choose (Vector.map lift v)
+fun selectW v = chooseW (Vector.map (fn (x,y) => (x,lift y)) v)
 
 fun chooseL l = choose (Vector.fromList l)
 fun chooseL' l = choose' (Vector.fromList l)
 fun chooseWL l = chooseW (Vector.fromList l)
 fun selectL l = select (Vector.fromList l)
+fun selectWL l = selectW (Vector.fromList l)
 
 fun zip (g1, g2) = g1 #-> (fn x1 => g2 #-> (fn x2 => pair (x1, x2)))
 
@@ -201,9 +206,13 @@ fun seq_of_gen limit gen r =
   end
 
 
-fun fold_seq f seq acc = case Seq.pull seq of
-    SOME (v,seq) => fold_seq f seq (f v acc)
-  | NONE => acc
+fun fold_seq limit f seq acc =
+  if limit = 0
+  then acc
+  else
+    case Seq.pull seq of
+      SOME (v,seq) => fold_seq (limit - 1) f seq (f v acc)
+    | NONE => acc
 
 type ('a, 'b) co = 'a -> 'b gen -> 'b gen
 

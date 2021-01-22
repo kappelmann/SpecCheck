@@ -64,11 +64,12 @@ fun check ctxt stats_init name show seq shrink prop =
         in (stats, badobjs) end
   in
     Timing.timing (fn () =>
-      (Generator.fold_seq iter seq (stats_init, []) handle EarlyReturn x => x)
+      (Generator.fold_seq (~1) iter seq (stats_init, []) handle EarlyReturn x => x)
       ||> map apply_show) ()
     |-> print_result
   end          
 
+(* Limit is set here instead of in the check function above because only randomly generated values require a limit *)
 fun limit ctxt gen =
   Generator.seq_of_gen
     (Config.get ctxt Configuration.gen_target * Config.get ctxt Configuration.max_discard_ratio)
