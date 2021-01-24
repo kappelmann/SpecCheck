@@ -50,7 +50,7 @@ signature GEN_TERM = sig
   num_args specifies how many arguments are required for the symbol. 0 to terminate this subtree
   new_state is passed according to the above traversal
   *)
-  val term_det : (int -> int -> 'a -> term * int * 'a) -> 'a -> term
+  val term_det : (int -> int -> 'a -> term * int * 'a) -> 'a -> term * 'a
 
 (* See above. f now takes a (Symbol * index_of_arg) list which specifies the path from the root to
   the current node *)
@@ -255,7 +255,7 @@ fun term_det f init_acc =
     (fold (fn x => fn y => y $ x) (rev args) sym, indices, acc)
     end
   in
-  aux [] 0 init_acc |> (fn (x,_,_) => x)
+  aux [] 0 init_acc |> (fn (x,_,acc) => (x,acc))
   end
 
 fun term_det_path f init_acc =
