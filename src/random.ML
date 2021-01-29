@@ -18,8 +18,9 @@ val next : rand -> rand
 (* Use this function for reproducible randomness. inputs \<le> 0 are mapped to 1 *)
 val deterministic_seed : int -> rand
 
-(* range_X (x,y) r returns a value in [x;y) *)
+(* range_int (x,y) r returns a value in [x;y], both x and y are inclusive! *)
 val range_int : int * int -> rand -> int * rand
+(* range_real (x,y) r returns a value in [x;y), that is y will never be returned! *)
 val range_real : real * real -> rand -> real * rand
 (* real r returns a real in [0;1). Theoretically 2^31 equidistant discrete steps *)
 val real : rand -> real * rand
@@ -49,8 +50,8 @@ fun new () =
 fun deterministic_seed r = Int.max(1, r mod m)
 
 fun range_int (min, max) r =
-  if min > max then raise Fail ("Range_Int: " ^ @{make_string} min ^ " > " ^ @{make_string} max)
-  else (min + ((max - min + 1) * r) div m, next r)
+  if min > max then Runtime.exn_trace (raise Fail ("Range_Int: " ^ @{make_string} min ^ " > " ^ @{make_string} max))
+  else (min + ((max - min) * r) div m, next r)
 
 (* TODO test whether this works as well as it should *)
 fun split r =
