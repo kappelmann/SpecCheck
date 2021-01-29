@@ -3,7 +3,7 @@ signature GEN_TERM = sig
   include GEN_BASE
 
   (* Reuse previously generated values. Pass a reuse-probability and an initial value list as state *)
-  val reuse : 'a gen -> real -> 'a list -> Random.rand -> 'a Seq.seq
+  val reuse_seq : 'a gen -> real -> 'a list -> Random.rand -> 'a Seq.seq
 
 (* Symbol and type generators
   symbols have no unique type but are a subset of term, therefore the sym_gens have type "term gen" *)
@@ -12,9 +12,9 @@ signature GEN_TERM = sig
   val const : int -> term gen
   val typ : int -> typ gen
 
-  val free' : real -> int -> Random.rand -> term Seq.seq
-  val var' : real -> int -> Random.rand -> term Seq.seq
-  val const' : real -> int -> Random.rand -> term Seq.seq
+  val free' : real -> int -> (term list * int) * Random.rand -> term * ((term list * int) * Random.rand)
+  val var' : real -> int -> (term list * int) * Random.rand -> term * ((term list * int) * Random.rand)
+  val const' : real -> int -> (term list * int) * Random.rand -> term * ((term list * int) * Random.rand)
 
 (* def_sym_gen (weight_free, weight_var, weight_const) num_args
   The weights specify the ratio of symbols (Free, Var, Const) in relation to each other in the term.
@@ -74,7 +74,28 @@ fun reuse_aux gen threshhold state r () =
   SOME (next, Seq.make (reuse_aux gen threshhold state r))
   end  
 in
-fun reuse gen threshhold state r = Seq.make (reuse_aux gen threshhold state r)
+fun reuse_seq gen threshhold state r = Seq.make (reuse_aux gen threshhold state r)
+end
+
+local
+fun reuse_aux gen threshhold (state,size) r =
+  let
+    val (random_perc,r) = Random.real r
+    val ((next,r),(state,size)) =
+      if random_perc < threshhold andalso not (null state)
+      then
+        let val (index,r) = Random.range_int (0, size - 1) r in
+        ((nth state index, r), (state,size))
+        end
+      else
+        let val (v,r) = gen r in
+        ((v,r), (v :: state, size+1))
+        end
+  in
+  (next,((state,size),r))
+  end  
+in
+fun reuse gen threshhold state r = reuse_aux gen threshhold state r
 end
 (* Symbols and types *)
 
@@ -125,9 +146,9 @@ fun free n r1 =
   (Free (name "f" n r1 |> fst, generic_type n), r2)
   end
 
-fun var' perc n = reuse (var n) perc []
-fun const' perc n = reuse (const n) perc []
-fun free' perc n = reuse (free n) perc []
+fun var' perc n (state,r) = reuse (var n) perc state r
+fun const' perc n (state,r) = reuse (const n) perc state r
+fun free' perc n (state,r) = reuse (free n) perc state r
 
 (* Construct a symbol generator by using chooseWL over a list of weights and generators *)
 fun def_sym_gen (weight_free, weight_var, weight_const) n =
@@ -144,16 +165,15 @@ fun def_sym_seq (weight_free, weight_var, weight_const) prob n r =
           if perc < weight_free then 0
           else if perc < weight_free + weight_var then 1
           else 2
-        val (value,seq) = nth state index |> Seq.pull |> (fn SOME x => x)
-        val state = nth_map index (K seq) state
-      in                             
+        val (value,(gen_state,r)) = nth state index |> (fn (gen,state) => gen (state,r))
+        val state = nth_map index (fn (x,y) => (x,gen_state)) state
+      in
       SOME (value, Seq.make (aux state r))
       end
-    val ((r1,r2),(r3,r4)) = Random.split r |>> Random.split ||> Random.split
   in
-  aux [free' prob n r1,
-       var' prob n r2,
-       const' prob n r3] r4
+  aux [(free' prob n,([],0)),
+       (var' prob n,([],0)),
+       (const' prob n,([],0))] r
   |> Seq.make
   end
 
@@ -194,7 +214,7 @@ fun get_num_args avg_args num_sym r =
   |>> clamp (0,num_sym)
 
 fun distribute_num_sym num_args num_sym r =
-  let fun f (acc,r) = Random.range_int (0,num_args) r |>> (fn x => x::acc)
+  let fun f (acc,r) = Random.range_int (0,num_args - 1) r |>> (fn x => x::acc)
       val (intervals,r) = fold (fn _ => f) (1 upto num_args - 1) ([],r) |>> Library.sort int_ord
       val intervals = 0::intervals @ [num_sym]
       val args_size = zip_list (tl intervals) intervals |> List.map (fn (x,y) => x - y)
