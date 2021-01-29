@@ -127,6 +127,8 @@ fun generic_type 0 = TVar (("'a", 0), [])
       let val name = "'" ^ Char.toString (Char.chr (Char.ord #"a" + n)) in
       Type ("fun", [TVar ((name,0), []), generic_type (n-1)]) end
 
+val dummy_type = dummyT
+
 (* Implement more sophisticated selection. Remember already used variables and their types. *)
 fun name prefix n r =
   string (lift 5, charRange (#"a",#"z")) r
@@ -135,15 +137,15 @@ fun var n r1 =
   let val (r1,r2) = Random.split r1
       val (r1,r3) = Random.split r1
   in
-  (Var ((name "v" n r1 |> fst, index r2 |> fst), generic_type n), r3)
+  (Var ((name "v" n r1 |> fst, index r2 |> fst), dummy_type), r3)
   end
 fun const n r1 =
   let val (r1,r2) = Random.split r1 in
-  (Const (name "c" n r1 |> fst, generic_type n), r2)
+  (Const (name "c" n r1 |> fst, dummy_type), r2)
   end
 fun free n r1 =
   let val (r1,r2) = Random.split r1 in
-  (Free (name "f" n r1 |> fst, generic_type n), r2)
+  (Free (name "f" n r1 |> fst, dummy_type), r2)
   end
 
 fun var' perc n (state,r) = reuse (var n) perc state r
