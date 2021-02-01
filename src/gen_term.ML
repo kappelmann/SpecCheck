@@ -7,22 +7,16 @@ signature GEN_TERM = sig
 
 (* Symbol and type generators
   symbols have no unique type but are a subset of term, therefore the sym_gens have type "term gen" *)
-  val free : int -> term gen
-  val var : int -> term gen
-  val const : int -> term gen
+  val free : int -> int -> term
+  val var : int -> int -> term
+  val const : int -> int -> term
   val typ : int -> typ gen
-
-  val free' : real -> int -> (term list * int) * Random.rand -> term * ((term list * int) * Random.rand)
-  val var' : real -> int -> (term list * int) * Random.rand -> term * ((term list * int) * Random.rand)
-  val const' : real -> int -> (term list * int) * Random.rand -> term * ((term list * int) * Random.rand)
 
 (* def_sym_gen (weight_free, weight_var, weight_const) num_args
   The weights specify the ratio of symbols (Free, Var, Const) in relation to each other in the term.
   Sum of weights need not be \<le> 1 and each weight can take arbitrary values. *)
-  val def_sym_gen : (real * real * real) -> int -> term gen
-(* def_sym_seq requires an additional reuse probability *)
-  val def_sym_seq : (real * real * real) -> real -> int -> Random.rand -> term Seq.seq
-
+  val def_sym_gen : (real * real * real) -> int -> int -> term gen
+  val def_sym_genS : real * real * real -> 'a -> int -> (term, (int list * int list * int list)) genS
 
 (* Term generators *)
 
@@ -133,50 +127,33 @@ val dummy_type = dummyT
 fun name prefix n r =
   string (lift 5, charRange (#"a",#"z")) r
   |>> (fn str => prefix ^ @{make_string} n ^ "_" ^ str)
-fun var n r1 =
-  let val (r1,r2) = Random.split r1
-      val (r1,r3) = Random.split r1
-  in
-  (Var ((name "v" n r1 |> fst, index r2 |> fst), dummy_type), r3)
-  end
-fun const n r1 =
-  let val (r1,r2) = Random.split r1 in
-  (Const (name "c" n r1 |> fst, dummy_type), r2)
-  end
-fun free n r1 =
-  let val (r1,r2) = Random.split r1 in
-  (Free (name "f" n r1 |> fst, dummy_type), r2)
-  end
-
-fun var' perc n (state,r) = reuse (var n) perc state r
-fun const' perc n (state,r) = reuse (const n) perc state r
-fun free' perc n (state,r) = reuse (free n) perc state r
+fun var id args = Var (("v" ^ string_of_int args ^ "_" ^ string_of_int id, 0), dummy_type)
+fun const id args = Const ("c" ^ string_of_int args ^ "_" ^ string_of_int id, dummy_type)
+fun free id args = Free ("f" ^ string_of_int args ^ "_" ^ string_of_int id, dummy_type)
 
 (* Construct a symbol generator by using chooseWL over a list of weights and generators *)
-fun def_sym_gen (weight_free, weight_var, weight_const) n =
-  chooseWL [(weight_free, free n),
-            (weight_var, var n),
-            (weight_const, const n)]
+fun def_sym_gen (weight_free, weight_var, weight_const) id n =
+  selectWL [(weight_free, free id n),
+            (weight_var, var id n),
+            (weight_const, const id n)]
 
-fun def_sym_seq (weight_free, weight_var, weight_const) prob n r =
+fun inc_default index list = nth_map index (fn x => x + 1) (list @ drop (length list - 1) (List.tabulate (index+111,(K 0))))
+
+fun incr_nth (x::xs) 0 = x+1 :: xs
+  | incr_nth [] n = incr_nth (0::[]) n
+  | incr_nth (x::xs) n = x :: incr_nth xs (n-1)
+
+fun def_sym_genS (weight_free, weight_var, weight_const) reuse_prob arg ((idfree,idvar,idconst),r) =
   let
-    fun aux state r () =
-      let
-        val (perc,r) = Random.range_real (0.0, weight_free + weight_var + weight_const) r
-        val index =
-          if perc < weight_free then 0
-          else if perc < weight_free + weight_var then 1
-          else 2
-        val (value,(gen_state,r)) = nth state index |> (fn (gen,state) => gen (state,r))
-        val state = nth_map index (fn (x,y) => (x,gen_state)) state
-      in
-      SOME (value, Seq.make (aux state r))
-      end
+    val (perc,r) = Random.range_real (0.0, weight_free + weight_var + weight_const) r
+    fun f xs = nth xs arg handle Subscript => 0
+    val (sym,state) =
+      if perc < weight_free
+      then (free (f idfree) arg, (incr_nth idfree arg, idvar,idconst))
+      else if perc < weight_free + weight_var then (var (f idvar) arg, (idfree, incr_nth idvar arg,idconst))
+      else (const (f idconst) arg, (idfree, idvar, incr_nth idconst arg))
   in
-  aux [(free' prob n,([],0)),
-       (var' prob n,([],0)),
-       (const' prob n,([],0))] r
-  |> Seq.make
+  (sym,(state,r))
   end
 
 (* Term generators *)
@@ -254,10 +231,6 @@ fun term_fol_map sym_gen term r =
 fun term_fol freq avg_args num_sym r =
   term_fol_structure avg_args num_sym r
   |-> term_fol_map freq
-
-fun incr_nth (x::xs) 0 = x+1 :: xs
-  | incr_nth [] n = incr_nth (0::[]) n
-  | incr_nth (x::xs) n = x :: incr_nth xs (n-1)
 
 fun term_det f init_acc =
   let fun aux indices height state =

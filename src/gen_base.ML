@@ -7,7 +7,10 @@ Basic random generators.
 
 signature GEN_BASE =
 sig
+(* 'a gen consume a random seed and return an unused one.
+('a,'b) genS additionally consume a state and return a modified state *)
 type 'a gen = Random.rand -> 'a * Random.rand
+type ('a,'b) genS = ('b * Random.rand) -> 'a * ('b * Random.rand)
 
 val lift : 'a -> 'a gen
 val gen_prop : ('a -> bool) -> 'a gen -> 'a gen (* Ensure that all generated values fulfill property *)
@@ -56,8 +59,8 @@ val coopt : ('a, 'b) co -> ('a option, 'b) co
    New state is passed to gen, therefore sequence is:
    [gen (next state), gen (next (next state)), ...] until "next state" returns NONE *)
 val seq_of_gen : int -> 'a gen -> Random.rand -> 'a Seq.seq
-(* Why is no fold predefined for finite seq? Nor a halting version for infinite seq?
-  first argument is the limit, if less than 0 limit is disabled. *)
+(* There is no fold predefined for finite seq? Nor a halting version for infinite seq?
+   first argument is the limit, if less than 0 limit is disabled. *)
 val fold_seq : int -> ('a -> 'b -> 'b) -> 'a Seq.seq -> 'b -> 'b
 
 end
@@ -67,6 +70,7 @@ struct
 
 (* Generators *)
 type 'a gen = Random.rand -> 'a * Random.rand
+type ('a,'b) genS = ('b * Random.rand) -> 'a * ('b * Random.rand)
 
 fun gen_prop prop gen r =
   let val (value,r) = gen r
