@@ -2,11 +2,13 @@
 signature GEN_TERM = sig
   include GEN_BASE
 
-  (* Reuse previously generated values. Pass a reuse-probability and an initial value list as state *)
+(* Reuse previously generated values. Pass a reuse-probability and an initial value list as state *)
   val reuse_seq : 'a gen -> real -> 'a list -> Random.rand -> 'a Seq.seq
 
 (* Symbol and type generators
-  symbols have no unique type but are a subset of term, therefore the sym_gens have type "term gen" *)
+   symbols have no unique type but are a subset of term, therefore the sym_gens have type "term gen"
+   "free id args" returns a Free symbol with the pattern "f<args>_<id>". That is, args is used to
+   immediately identify the type and id is used as an identifier differentiating it from other Frees. *)
   val free : int -> int -> term
   val var : int -> int -> term
   val const : int -> int -> term
@@ -14,9 +16,11 @@ signature GEN_TERM = sig
 
 (* def_sym_gen (weight_free, weight_var, weight_const) num_args
   The weights specify the ratio of symbols (Free, Var, Const) in relation to each other in the term.
-  Sum of weights need not be \<le> 1 and each weight can take arbitrary values. *)
+  Sum of weights need not be = 1 and each weight can take arbitrary positive values. *)
   val def_sym_gen : (real * real * real) -> int -> int -> term gen
-  val def_sym_genS : real * real * real -> 'a -> int -> (term, (int list * int list * int list)) genS
+(* "def_sym_genS weights reuse_prob num_args" is a stateful variant that reuses previously generated
+   symbols according to reuse_prob. To do so it uses a state => type is genS *)
+  val def_sym_genS : real * real * real -> real -> int -> (term, (int list * int list * int list)) genS
 
 (* Term generators *)
 
@@ -27,7 +31,7 @@ signature GEN_TERM = sig
   val term_fol : (int -> term gen) -> int -> int -> term gen
 
 (* "term_det f init_state" where "f height index state" returns "(symbol, num_args, new_state)"
-  generates a term deterministically by applying f to every node andd expanding that node depending
+  generates a term deterministically by applying f to every node and expanding that node depending
   on the num_args that f returns.
   Traversal is: function \<rightarrow> first argument \<rightarrow> ... \<rightarrow> last argument
   This is later transformed to the Isabelle representation of ((f $ x) $ y) $ z
@@ -36,13 +40,13 @@ signature GEN_TERM = sig
   Arguments of f:
   height describes the distance from the root. Starts at 0
   index describes the !GLOBAL! index in that layer. Starts at 1.
-    The left subtree influences the right subtree!
+  Therefore the left subtree influences the right subtree!
   state is passed according to the above traversal
   
   Return value of f:
   symbol is the function to which the arguments are generated next. Symbols are terms in Isabelle!
   num_args specifies how many arguments are required for the symbol. 0 to terminate this subtree
-  new_state is passed according to the above traversal
+  new_state is passed according to the traversal above
   *)
   val term_det : (int -> int -> 'a -> term * int * 'a) -> 'a -> term * 'a
 
@@ -143,15 +147,32 @@ fun incr_nth (x::xs) 0 = x+1 :: xs
   | incr_nth [] n = incr_nth (0::[]) n
   | incr_nth (x::xs) n = x :: incr_nth xs (n-1)
 
-fun def_sym_genS (weight_free, weight_var, weight_const) reuse_prob arg ((idfree,idvar,idconst),r) =
+fun def_sym_genS (weight_free, weight_var, weight_const) reuse_prob arg (state as (idfree,idvar,idconst),r) =
   let
+    val (reuse_perc,r) = Random.real r
     val (perc,r) = Random.range_real (0.0, weight_free + weight_var + weight_const) r
     fun f xs = nth xs arg handle Subscript => 0
+    val (r1,r) = Random.split r
+    val reuse = reuse_perc < reuse_prob
+    fun range id =
+      if reuse
+      then Random.range_int (0,id+1) r1 |> fst
+      else id + 1
     val (sym,state) =
       if perc < weight_free
-      then (free (f idfree) arg, (incr_nth idfree arg, idvar,idconst))
-      else if perc < weight_free + weight_var then (var (f idvar) arg, (idfree, incr_nth idvar arg,idconst))
-      else (const (f idconst) arg, (idfree, idvar, incr_nth idconst arg))
+      then
+        if reuse
+        then (free (f idfree |> range) arg, state)
+        else (free (f idfree) arg, (incr_nth idfree arg, idvar, idconst))
+      else if perc < weight_free + weight_var
+      then
+        if reuse
+        then (var  (f idvar |> range) arg, state)
+        else (var  (f idvar) arg, (idfree, incr_nth idvar arg,idconst))
+      else
+        if reuse
+        then (const (f idconst |> range) arg, state)
+        else (const (f idconst) arg, (idfree, idvar, incr_nth idconst arg))
   in
   (sym,(state,r))
   end

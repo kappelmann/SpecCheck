@@ -54,10 +54,12 @@ val cobool : (bool, 'b) co
 val colist : ('a, 'b) co -> ('a list, 'b) co
 val coopt : ('a, 'b) co -> ('a option, 'b) co
 
-(* Finite sequence of values / stateful generators
+(* Finite sequence of values
    Pass initial state and state-update/next function
    New state is passed to gen, therefore sequence is:
-   [gen (next state), gen (next (next state)), ...] until "next state" returns NONE *)
+   [gen (next state), gen (next (next state)), ...] until "next state" returns NONE
+   Can be used for stateful generators but the performance suffers when compared to the genS type.
+*)
 val seq_of_gen : int -> 'a gen -> Random.rand -> 'a Seq.seq
 (* There is no fold predefined for finite seq? Nor a halting version for infinite seq?
    first argument is the limit, if less than 0 limit is disabled. *)
