@@ -132,9 +132,9 @@ val dummy_type = dummyT
 fun name prefix n r =
   string (lift 5, charRange (#"a",#"z")) r
   |>> (fn str => prefix ^ @{make_string} n ^ "_" ^ str)
-fun var id args = Var (("v" ^ string_of_int args ^ "_" ^ string_of_int id, 0), dummy_type)
-fun const id args = Const ("c" ^ string_of_int args ^ "_" ^ string_of_int id, dummy_type)
-fun free id args = Free ("f" ^ string_of_int args ^ "_" ^ string_of_int id, dummy_type)
+fun var id args = Var (("v" ^ string_of_int args ^ "_" ^ string_of_int id, 0), generic_type args)
+fun const id args = Const ("c" ^ string_of_int args ^ "_" ^ string_of_int id, generic_type args)
+fun free id args = Free ("f" ^ string_of_int args ^ "_" ^ string_of_int id, generic_type args)
 
 (* Construct a symbol generator by using chooseWL over a list of weights and generators *)
 fun def_sym_gen (weight_free, weight_var, weight_const) id num_args r =
