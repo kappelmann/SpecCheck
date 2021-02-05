@@ -98,10 +98,11 @@ val initial_content = Symtab.make
   ("int", ("Generator.int", "string_of_int")),
   ("real", ("Generator.real", "string_of_real")),
   ("char", ("Generator.char", "fn c => \"#'\" ^ (Char.toString c) ^ \"'\"")),
-  ("string", ("Generator.string (Generator.range (0, 100), Generator.char)", "ML_Syntax.print_string")),
+  ("string", ("Generator.string (Random.range (0, 100), Generator.char)", "ML_Syntax.print_string")),
   ("->", ("Generator.function_lazy", "fn (_, _) => fn _ => \"fn\"")),
   ("typ", ("Generator.typ 10", "ML_Syntax.print_typ")),
-  ("term", ("Generator.term 10", "ML_Syntax.print_term"))]
+  ("term", ("Generator.term_det (fn h => fn i => fn r => let val (s,r) = Generator.def_sym_gen (1.0,1.0,1.0) 20 (4-h) r in (s,4-h,r) end)",
+          "ML_Syntax.print_term"))]
 
 structure Data = Theory_Data
 (
@@ -155,9 +156,8 @@ fun compose_printer _ Var = "Int.toString"
 
 (*produce compilable string*)
 fun build_check ctxt name (ty, spec) =
-  "Spec_Check.checkGen (Context.the_local_context ()) ("
-  ^ compose_generator ctxt ty ^ ", SOME (" ^ compose_printer ctxt ty ^ ")) (\""
-  ^ name ^ "\", Property.pred (" ^ spec ^ "));";
+  "Spec_Check.check_gen (Context.the_local_context ()) \"" ^ name ^ "\" ("
+  ^ compose_generator ctxt ty ^ ") (SOME (" ^ compose_printer ctxt ty ^ ")) (Property.pred (" ^ spec ^ ")) (Random.new ());";
 
 (*produce compilable string - non-eqtype functions*)
 (*
