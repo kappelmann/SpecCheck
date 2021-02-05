@@ -14,7 +14,8 @@ signature GEN_TERM = sig
   val const : int -> int -> term
   val typ : int -> typ gen
 
-(* def_sym_gen (weight_free, weight_var, weight_const) num_args
+(* def_sym_gen (weight_free, weight_var, weight_const) max_id num_args
+  max_id specifies the largest id used for name generation. It picks a random value from [0,max_id)
   The weights specify the ratio of symbols (Free, Var, Const) in relation to each other in the term.
   Sum of weights need not be = 1 and each weight can take arbitrary positive values. *)
   val def_sym_gen : (real * real * real) -> int -> int -> term gen
@@ -136,10 +137,11 @@ fun const id args = Const ("c" ^ string_of_int args ^ "_" ^ string_of_int id, du
 fun free id args = Free ("f" ^ string_of_int args ^ "_" ^ string_of_int id, dummy_type)
 
 (* Construct a symbol generator by using chooseWL over a list of weights and generators *)
-fun def_sym_gen (weight_free, weight_var, weight_const) id n =
-  selectWL [(weight_free, free id n),
-            (weight_var, var id n),
-            (weight_const, const id n)]
+fun def_sym_gen (weight_free, weight_var, weight_const) id num_args r =
+  selectWL [(weight_free, free),
+            (weight_var, var),
+            (weight_const, const)] r
+  |> (fn (gen,r) => Random.range_int (0,id) r |>> (fn id => gen id num_args))
 
 fun inc_default index list = nth_map index (fn x => x + 1) (list @ drop (length list - 1) (List.tabulate (index+111,(K 0))))
 
