@@ -27,7 +27,10 @@ open Property
 (* testing functions *)
 fun check ctxt stats_init name show seq shrink prop =
   let
-    fun apply_show x = case show of NONE => NONE | SOME f => SOME (f x)
+    fun apply_show xs =
+      case show of
+        SOME f => Output_Style.Left (map f xs)
+      | NONE => Output_Style.Right (length xs)
     val print_result = Output_Style.get_style ctxt name
     fun test_input input stats = Property.test prop (input, stats)
 
@@ -69,7 +72,7 @@ fun check ctxt stats_init name show seq shrink prop =
   in
     Timing.timing (fn () =>
       (Generator.fold_seq (~1) iter seq (stats_init, []) handle EarlyReturn x => x)
-      ||> map apply_show) ()
+      ||> apply_show) ()
     |-> print_result
   end          
 

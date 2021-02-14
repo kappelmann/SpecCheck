@@ -6,18 +6,21 @@ Output styles for presenting Spec_Check's results.
 *)
 
 structure Output_Style : sig
-  type output_style = Proof.context -> string -> Timing.timing -> Property.stats * string option list -> unit
-
+  datatype ('a, 'b) either = Left of 'a | Right of 'b
+  type output_style = Proof.context -> string -> Timing.timing -> Property.stats * (string list, int) either  -> unit
+  
   val register_style : string -> output_style -> theory -> theory
-  val get_style : Proof.context -> string -> Timing.timing -> Property.stats * string option list -> unit
+  val get_style : Proof.context -> string -> Timing.timing -> Property.stats * (string list, int) either -> unit
 end = struct
 
 open Configuration
 
+datatype ('a, 'b) either = Left of 'a | Right of 'b
+
 type ('a, 'b) reader = 'b -> ('a * 'b) option
 type 'a rep = ('a -> string) option
 
-type output_style = Proof.context -> string -> Timing.timing -> Property.stats * string option list -> unit
+type output_style = Proof.context -> string -> Timing.timing -> Property.stats * (string list, int) either -> unit
 
 
 structure Style = Theory_Data
@@ -42,6 +45,9 @@ fun register_style name style = Style.map (Symtab.update (name, style))
 
 fun perl_style ctxt name timing (stats, badobjs) =
   let
+    val (badobjs',count_badobjs) = case badobjs of
+        Left xs => (xs, length xs)
+      | Right size => ([], size)
     val target = Config.get ctxt gen_target
     val namew = Config.get ctxt column_width
     val sort_examples = Config.get ctxt sort_examples
@@ -54,9 +60,9 @@ fun perl_style ctxt name timing (stats, badobjs) =
 
     val maybe_sort = if sort_examples then sort (int_ord o apply2 size) else I
 
-    fun result ({count = 0, ...}, _) = "dubious"
-      | result ({count, generated, ...}, badobjs) =
-          if not (null badobjs) then "FAILED"
+    fun result {count = 0, ...} = "dubious"
+      | result {count, generated, ...} =
+          if count_badobjs <> 0 then "FAILED"
           else if generated andalso count < target then "dubious"
           else "ok"
 
@@ -65,20 +71,20 @@ fun perl_style ctxt name timing (stats, badobjs) =
       | ratio (count, n) =
           "(" ^ string_of_int (count - n) ^ "/" ^ string_of_int count ^  " passed)"
 
-    fun update (stats, badobjs) =
+    val update =
       "\r" ^ StringCvt.padRight #"." namew name ^ "." ^
-      StringCvt.padRight #" " resultw (result (stats, badobjs)) ^
-      StringCvt.padRight #" " countw (ratio (#count stats, length badobjs))
+      StringCvt.padRight #" " resultw (result stats) ^
+      StringCvt.padRight #" " countw (ratio (#count stats, count_badobjs))
 
     fun err badobjs =
-      case maybe_sort (take limit (map_filter I badobjs)) of
+      case maybe_sort (take limit badobjs) of
           [] => ()
         | es => (warning "Counterexamples:"; fold (fn x => fn _ => warning x) es ())
 
   in
-    if null badobjs
-    then writeln (update (stats, badobjs))
-    else (warning (update (stats, badobjs)); err badobjs)
+    if count_badobjs = 0
+    then writeln update
+    else (warning update; err badobjs')
   end
 
 val perl_style = register_style "Perl" perl_style
@@ -90,22 +96,24 @@ val _ = Theory.setup perl_style;
 
 fun cm_style ctxt name timing ({count, ...} : Property.stats, badobjs) =
   let
+    val (badobjs',count_badobjs) = case badobjs of
+        Left xs => (xs, length xs)
+      | Right size => ([], size)
     fun pad wd = StringCvt.padLeft #"0" wd o Int.toString
     val gen_target = Config.get ctxt gen_target
     val _ = writeln ("[testing " ^ name ^ "... ")
   in
-  case (count, badobjs) of
-    (0, []) => warning ("no valid cases generated]")
-  | (n, []) => writeln (
+  case (count, count_badobjs) of
+    (0, 0) => warning ("no valid cases generated]")
+  | (n, 0) => writeln (
         if n >= gen_target then "ok]"
         else "ok on " ^ string_of_int n ^ "; " ^ string_of_int gen_target ^ " required]")
-  | (_, es) =>
+  | (_, m) =>
       let
-        val wd = size (string_of_int (length es))
-        fun each (NONE, _) = ()
-          | each (SOME e, i) = warning (name ^ ":" ^ pad wd i ^ ".0 Error: " ^ e)
+        val wd = size (string_of_int (length badobjs'))
+        fun each (e, i) = warning (name ^ ":" ^ pad wd i ^ ".0 Error: " ^ e)
       in
-        (warning "FAILED]"; map each (es ~~ (1 upto (length es))); ())
+        (warning "FAILED]"; map each (badobjs' ~~ (1 upto m)); ())
       end
   end
 
@@ -118,6 +126,9 @@ val _ = Theory.setup cm_style;
 
 fun custom_style ctxt name total_time (stats, badobjs) =
   let
+    val (badobjs',count_badobjs) = case badobjs of
+        Left xs => (xs, length xs)
+      | Right size => ([], size)
     val target = Config.get ctxt gen_target
     val sort_examples = Config.get ctxt sort_examples
     val show_stats = Config.get ctxt show_stats
@@ -128,9 +139,9 @@ fun custom_style ctxt name total_time (stats, badobjs) =
     val timew = 20
     val allw = resultw + countw + timew + 2
   
-    fun result ({count = 0, ...}, _) = "No Test"
-      | result ({count, generated, ...}, badobjs) =
-          if not (null badobjs)
+    fun result {count = 0, ...} = "No Test"
+      | result {count, generated, ...} =
+          if count_badobjs <> 0
           then "Failed"
           else if generated andalso count < target
           then "Bad Gen"
@@ -146,12 +157,12 @@ fun custom_style ctxt name total_time (stats, badobjs) =
     fun time {cpu, elapsed, gc} =
       "(" ^ Time.toString elapsed ^ "s / " ^ Time.toString (#elapsed total_time) ^ "s)"
   
-    fun update (stats, badobjs) =
+    val result =
       let val more_stats = if not show_stats then "" else
-            StringCvt.padRight #" " countw (ratio (#count stats, length badobjs)) ^
+            StringCvt.padRight #" " countw (ratio (#count stats, count_badobjs)) ^
             StringCvt.padRight #" " timew (time (#timing stats))
       in
-      StringCvt.padRight #" " resultw (result (stats, badobjs)) ^ more_stats ^ name
+      StringCvt.padRight #" " resultw (result stats) ^ more_stats ^ name
       end
   
     fun print_counter badobjs =
@@ -159,20 +170,20 @@ fun custom_style ctxt name total_time (stats, badobjs) =
         val maybe_sort = if sort_examples then sort (int_ord o apply2 size) else I
         val badobjs =
           badobjs
-          |> map_filter I
           |> take limit
-          |> maybe_sort (* TODO When can this occur? *)
+          |> maybe_sort
       in
         case badobjs of
             [] => (warning "No counterexample. No random generator used?")
           | [e] => (warning ("Counterexample:"); warning e)
           | es => (warning "Counterexamples:"; fold (fn x => fn _ => warning x) es ())
       end
-    val result = update (stats, badobjs)
   in
-    if null badobjs
+    if count_badobjs = 0
     then writeln result
-    else (warning result; print_counter badobjs)
+    else if null badobjs'
+    then warning result
+    else (warning result; print_counter badobjs')
   end
 
 val custom_style = register_style "Custom" custom_style
