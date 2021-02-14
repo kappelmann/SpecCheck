@@ -121,10 +121,12 @@ fun typ n =
   end;
 
 
-fun generic_type 0 = TVar (("'a", 0), [])
-  | generic_type n =
-      let val name = "'" ^ Char.toString (Char.chr (Char.ord #"a" + n)) in
-      Type ("fun", [TVar ((name,0), []), generic_type (n-1)]) end
+fun generic_type char 0 =
+      let val name = "'" ^ Char.toString (Char.chr (Char.ord #"a" + char)) in
+      TVar ((name, 0), []) end
+  | generic_type char n =
+      let val name = "'" ^ Char.toString (Char.chr (Char.ord #"a" + char)) in
+      Type ("fun", [TVar ((name,0), []), generic_type (char+1) (n-1)]) end
 
 val dummy_type = dummyT
 
@@ -132,9 +134,9 @@ val dummy_type = dummyT
 fun name prefix n r =
   string (lift 5, charRange (#"a",#"z")) r
   |>> (fn str => prefix ^ @{make_string} n ^ "_" ^ str)
-fun var id args = Var (("v" ^ string_of_int args ^ "_" ^ string_of_int id, 0), generic_type args)
-fun const id args = Const ("c" ^ string_of_int args ^ "_" ^ string_of_int id, generic_type args)
-fun free id args = Free ("f" ^ string_of_int args ^ "_" ^ string_of_int id, generic_type args)
+fun var id args = Var (("v" ^ string_of_int args ^ "_" ^ string_of_int id, 0), generic_type 0 args)
+fun const id args = Const ("c" ^ string_of_int args ^ "_" ^ string_of_int id, generic_type 0 args)
+fun free id args = Free ("f" ^ string_of_int args ^ "_" ^ string_of_int id, generic_type 0 args)
 
 (* Construct a symbol generator by using chooseWL over a list of weights and generators *)
 fun def_sym_gen (weight_free, weight_var, weight_const) id num_args r =
