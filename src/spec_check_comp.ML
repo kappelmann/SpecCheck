@@ -73,8 +73,6 @@ fun gen_check_property_f check ctxt s =
 
 val check_property_f = gen_check_property_f Gen_Construction.build_check
 (*val check_property_safe_f_ = gen_check_property_f Gen_Construction.safe_check*)
-
-
 end;
 
 fun check_property s = Spec_Check_Comp.check_property (Context.the_local_context ()) s;

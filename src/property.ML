@@ -38,6 +38,7 @@ type 'a prop = 'a -> result
 
 fun apply f x =
   Result (f x)
+  (* Testcode may throw arbitrary exceptions. Interrupts MUST not be catched! *)
   handle x => if Exn.is_interrupt x then Exn.reraise x else Exception x
 
 fun pred f x = apply f x

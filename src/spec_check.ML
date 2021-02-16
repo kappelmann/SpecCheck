@@ -43,7 +43,7 @@ fun check ctxt stats_init name show seq shrink prop =
           | Result false => true
           | Exception exn => (warning "Exception raised during test:"; Runtime.exn_trace (fn () => raise exn))
       in
-        (* Quasi Depth-first search, return once end of current branch is reached *)
+        (* Always try the first successful branch, abort without backtracking once no further shrink is possible. *)
         case find_first is_failure (shrink obj) of
           SOME obj => try_shrink obj
         | NONE => obj
@@ -51,9 +51,9 @@ fun check ctxt stats_init name show seq shrink prop =
 
     exception EarlyReturn of Property.stats * 'a list
     fun iter obj (stats, badobjs) =
-      (* Target fulfilled, skip the rest *)
+      (* Target fulfilled, skip the rest and avoid traversing the whole lazy sequence *)
       if #count stats >= Config.get ctxt Configuration.gen_target
-      then raise EarlyReturn (stats, badobjs) (* Avoid traversing the whole lazy sequence *)
+      then raise EarlyReturn (stats, badobjs)
       else
       (* Test obj, if failure then attempt to shrink *)
         let
@@ -65,11 +65,11 @@ fun check ctxt stats_init name show seq shrink prop =
             | Result false => try_shrink obj :: badobjs
             | Exception exn =>
                 (warning ("Exception raised during test: " ^ name);
-                  if Exn.is_interrupt exn
-                  then Runtime.exn_trace (fn () => Exn.reraise exn)
-                  else warning (@{make_string} exn); raise EarlyReturn (stats, obj :: badobjs))
+                 warning (@{make_string} exn);
+                 raise EarlyReturn (stats, obj :: badobjs))
         in (stats, badobjs) end
   in
+  (* TODO Perhaps use ML_Profiling.profile_time to get more accurate results? Far slower *)
     Timing.timing (fn () =>
       (Generator.fold_seq (~1) iter seq (stats_init, []) handle EarlyReturn x => x)
       ||> apply_show) ()
@@ -83,12 +83,10 @@ fun limit ctxt gen =
     gen
 
 fun check_gen ctxt name gen show prop r =
-  check ctxt (Property.empty_stats true) name show (limit ctxt gen r) (fn _ => [])
-    prop
+  check ctxt (Property.empty_stats true) name show (limit ctxt gen r) (fn _ => []) prop
 
 fun check_gen_shrink ctxt name gen show shrink prop r =
-  check ctxt (Property.empty_stats true) name show (limit ctxt gen r) shrink
-    prop
+  check ctxt (Property.empty_stats true) name show (limit ctxt gen r) shrink prop
 
 fun check_seq ctxt name seq show shrink prop  =
   check ctxt (Property.empty_stats false) name show seq shrink prop

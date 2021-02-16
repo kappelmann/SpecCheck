@@ -20,6 +20,7 @@ val examples = Attrib.setup_config_int \<^binding>\<open>spec_check_examples\<cl
 
 (* Sort counter examples by size *)
 val sort_examples = Attrib.setup_config_bool \<^binding>\<open>spec_check_sort_examples\<close> (K true)
+(* Print timing etc. depending on style *)
 val show_stats = Attrib.setup_config_bool \<^binding>\<open>spec_check_show_stats\<close> (K true)
 val column_width = Attrib.setup_config_int \<^binding>\<open>spec_check_column_width\<close> (K 22)
 val style = Attrib.setup_config_string \<^binding>\<open>spec_check_style\<close> (K "Custom")

@@ -137,7 +137,6 @@ fun custom_style ctxt name total_time (stats, badobjs) =
     val resultw = 8
     val countw = 20
     val timew = 20
-    val allw = resultw + countw + timew + 2
   
     fun result {count = 0, ...} = "No Test"
       | result {count, generated, ...} =
@@ -148,9 +147,9 @@ fun custom_style ctxt name total_time (stats, badobjs) =
           else "Passed"
   
     fun ratio (0, _) = "(0/0 passed)"
-      | ratio (count, 0) = "(" ^ string_of_int count ^ " passed)"
-      | ratio (count, n) =
-          "(" ^ string_of_int (count - n) ^ "/" ^ string_of_int count ^  " passed)"
+      | ratio (total, 0) = "(" ^ string_of_int total ^ " passed)"
+      | ratio (total, fails) =
+          "(" ^ string_of_int (total - fails) ^ "/" ^ string_of_int total ^  " passed)"
     
     (* Print the time spent in the test function in relation to total time spent.
        That includes generating test cases and overhead from the framework *)

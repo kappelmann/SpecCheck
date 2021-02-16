@@ -7,29 +7,32 @@ Basic random generators.
 
 signature GEN_BASE =
 sig
-(* 'a gen consume a random seed and return an unused one.
-('a,'b) genS additionally consume a state and return a modified state *)
+(* 'a gen consume a random seed and return an unused one. *)
 type 'a gen = Random.rand -> 'a * Random.rand
+(* ('a,'b) genS additionally consume a state and return a modified state.
+  TODO Currently almost no usage. Theoretically useful for functions that accept stateful gens.
+  More lightweight than sequences from Seq. *)
 type ('a,'b) genS = ('b * Random.rand) -> 'a * ('b * Random.rand)
 
 val lift : 'a -> 'a gen
-val gen_prop : ('a -> bool) -> 'a gen -> 'a gen (* Ensure that all generated values fulfill property *)
 val select : 'a vector -> 'a gen
-val selectW : (real * 'a) vector -> 'a gen
 val choose : 'a gen vector -> 'a gen
-val choose' : (int * 'a gen) vector -> 'a gen (* TODO obsolete? Very bad performance for large numbers *)
+
+(* Copy of above with list instead of vector.
+  TODO remove vector implementations completely? *)
+val selectL : 'a list -> 'a gen
+val chooseL : 'a gen list -> 'a gen
+
 (* Choose based on weight of generators. Total of weights need not be 1.0, therefore:
   chooseW [(1.0,x),(3.0,y)] == chooseW [(0.25,x),(0.75,y)] *)
 val chooseW : (real * 'a gen) vector -> 'a gen
-
-(* Copy of above with list instead of vector *)
-val selectL : 'a list -> 'a gen
-val selectWL : (real * 'a) list -> 'a gen
-val chooseL : 'a gen list -> 'a gen
-val chooseL' : (int * 'a gen) list -> 'a gen
+val selectW : (real * 'a) vector -> 'a gen
 val chooseWL : (real * 'a gen) list -> 'a gen
+val selectWL : (real * 'a) list -> 'a gen
 
+(* Ensure that all generated values fulfill property. Loops if no value is found. *)
 val filter : ('a -> bool) -> 'a gen -> 'a gen
+(* TODO relatively slow and dumb implementation *)
 val shuffle : 'a list -> 'a list gen
 
 val zip : ('a gen * 'b gen) -> ('a * 'b) gen
@@ -41,18 +44,9 @@ val map3 : ('a * 'b * 'c -> 'd) -> ('a gen * 'b gen * 'c gen) -> 'd gen
 val map4 : ('a * 'b * 'c * 'd -> 'e) -> ('a gen * 'b gen * 'c gen * 'd gen) -> 'e gen
 
 val flip : real -> bool gen
-val binom_dist : real -> int -> int gen
-val binom_dist_avg : real -> int -> int gen
 val list : bool gen -> 'a gen -> 'a list gen
 val option : bool gen -> 'a gen -> 'a option gen
 val vector : (int * (int -> 'a) -> 'b) -> int gen * 'a gen -> 'b gen
-
-type ('a, 'b) co = 'a -> 'b gen -> 'b gen
-val variant : (int, 'b) co
-val arrow : ('a, 'b) co * 'b gen -> ('a -> 'b) gen
-val cobool : (bool, 'b) co
-val colist : ('a, 'b) co -> ('a list, 'b) co
-val coopt : ('a, 'b) co -> ('a option, 'b) co
 
 (* Finite sequence of values
    Pass initial state and state-update/next function
@@ -65,6 +59,14 @@ val seq_of_gen : int -> 'a gen -> Random.rand -> 'a Seq.seq
    first argument is the limit, if less than 0 limit is disabled. *)
 val fold_seq : int -> ('a -> 'b -> 'b) -> 'a Seq.seq -> 'b -> 'b
 
+type ('a, 'b) co = 'a -> 'b gen -> 'b gen
+val variant : (int, 'b) co
+val arrow : ('a, 'b) co * 'b gen -> ('a -> 'b) gen
+val cobool : (bool, 'b) co
+val colist : ('a, 'b) co -> ('a list, 'b) co
+val coopt : ('a, 'b) co -> ('a option, 'b) co
+
+val binom_dist : real -> int -> int gen
 end
 
 structure Gen_Base : GEN_BASE =
@@ -73,14 +75,6 @@ struct
 (* Generators *)
 type 'a gen = Random.rand -> 'a * Random.rand
 type ('a,'b) genS = ('b * Random.rand) -> 'a * ('b * Random.rand)
-
-fun gen_prop prop gen r =
-  let val (value,r) = gen r
-  in
-  if prop value
-  then (value,r)
-  else gen_prop prop gen r
-  end
 
 fun flip prob r = let val (x,r) = Random.real r in (x < prob, r) end
 
@@ -93,8 +87,6 @@ fun binom_dist _ 0 r = (0,r)
       |> (fn (x,(acc,r)) => (acc + x, r))
     end
 
-fun binom_dist_avg p avg r = binom_dist p (Real.toInt IEEEReal.TO_NEAREST (Real.fromInt avg / p)) r
-
 type ('a, 'b) reader = 'b -> ('a * 'b) option
 
 fun lift obj r = (obj, r)
@@ -105,13 +97,6 @@ fun choose v r =
     val (i, r) = Random.range_int (0, Vector.length v - 1) r
   in
   Vector.sub (v, i) r
-  end
-
-fun choose' v =
-  let
-    fun explode ((freq, gen), acc) = List.tabulate (freq, fn _ => gen) @ acc
-  in
-  choose (Vector.fromList (Vector.foldr explode [] v))
   end
 
 local
@@ -141,7 +126,6 @@ fun select v = choose (Vector.map lift v)
 fun selectW v = chooseW (Vector.map (fn (x,y) => (x,lift y)) v)
 
 fun chooseL l = choose (Vector.fromList l)
-fun chooseL' l = choose' (Vector.fromList l)
 fun chooseWL l = chooseW (Vector.fromList l)
 fun selectL l = select (Vector.fromList l)
 fun selectWL l = selectW (Vector.fromList l)
@@ -169,8 +153,9 @@ fun filter p gen r =
 
 fun shuffle [] r = ([],r)
   | shuffle (x::xs) r =
-    let val (index,r) = Random.range_int (0, length (x::xs) - 1) r
-        val (xs,r) = shuffle xs r
+    let
+      val (index,r) = Random.range_int (0, length xs) r
+      val (xs,r) = shuffle xs r
     in
     (take index xs @ [x] @ drop index xs, r)
     end
@@ -211,7 +196,6 @@ fun seq_of_gen limit gen r =
     Seq.make (aux limit gen r)
   end
 
-
 fun fold_seq limit f seq acc =
   if limit = 0
   then acc
@@ -219,6 +203,7 @@ fun fold_seq limit f seq acc =
     case Seq.pull seq of
       SOME (v,seq) => fold_seq (limit - 1) f seq (f v acc)
     | NONE => acc
+
 
 type ('a, 'b) co = 'a -> 'b gen -> 'b gen
 

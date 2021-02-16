@@ -86,7 +86,7 @@ fun digits' n = string (Random.range_int (0, n-1), digit)
 fun digits n = map2 op^ (nonzero, digits' n)
 
 val maxDigits = 64
-val ratio = 49
+val ratio = 49.0
 
 fun pos_or_neg f r =
   let
@@ -97,8 +97,8 @@ val int_pos = pos_or_neg I
 val int_neg = pos_or_neg Int.~
 val zero = lift 0
 
-val int_nonneg = chooseL' [(1, zero), (ratio, int_pos)]
-val int_nonpos = chooseL' [(1, zero), (ratio, int_neg)]
+val int_nonneg = chooseWL [(1.0, zero), (ratio, int_pos)]
+val int_nonpos = chooseWL [(1.0, zero), (ratio, int_neg)]
 val int = chooseL [int_nonneg, int_nonpos]
 
 fun coint n =
@@ -116,7 +116,7 @@ fun real_frac r =
 val {exp=minExp,...} = Real.toManExp Real.minPos
 val {exp=maxExp,...} = Real.toManExp Real.posInf
 
-val ratio = 99
+val ratio = 99.0
 
 fun mk r =
   let
@@ -128,14 +128,14 @@ fun mk r =
     (the (Real.fromString x), r''')
   end
 
-val real_pos = chooseL' (List.map ((pair 1) o lift)
+val real_pos = chooseWL (List.map ((pair 1.0) o lift)
     [Real.posInf, Real.maxFinite, Real.minPos, Real.minNormalPos] @ [(ratio, mk)])
 
 val real_neg = map Real.~ real_pos
 
 val real_zero = Real.fromInt 0
-val real_nonneg = chooseL' [(1, lift real_zero), (ratio, real_pos)]
-val real_nonpos = chooseL' [(1, lift real_zero), (ratio, real_neg)]
+val real_nonneg = chooseWL [(1.0, lift real_zero), (ratio, real_pos)]
+val real_nonpos = chooseWL [(1.0, lift real_zero), (ratio, real_neg)]
 
 val real = chooseL [real_nonneg, real_nonpos]
 

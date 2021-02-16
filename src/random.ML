@@ -22,9 +22,13 @@ val deterministic_seed : int -> rand
 val range_int : int * int -> rand -> int * rand
 (* range_real (x,y) r returns a value in [x;y), that is y will never be returned! *)
 val range_real : real * real -> rand -> real * rand
-(* real r returns a real in [0;1). Theoretically 2^31 equidistant discrete steps *)
+(* real r returns a real in [0;1). Theoretically 2^31 equidistant discrete values *)
 val real : rand -> real * rand
-(* Split and shortlived_seed TODO
+(* TODO: Split and shortlived_seed
+The PRNG is a sequence of values. The current implementation for split (r - next r) could return a
+two seeds directly adjacent in this sequence. This could lead to e.g. repetitions in subtrees of
+generated terms etc.
+Solutions:
 - split generates multiple seeds evenly spaced along the sequence (repetition happens after m / num)
 - shortlived_seed skips a number of values in the sequence => only usable for the next num values *)
 val split : rand -> rand * rand
@@ -44,16 +48,16 @@ fun next seed = (seed * a) mod m
 fun new () =
   Time.now ()
   |> Time.toMicroseconds
-  |> (fn x => Int.max(1,x mod m)) (* The seed must be within [1;m) *)
+  |> (fn x => Int.max(1, x mod m)) (* The seed must be within [1;m) *)
   |> next (* Not strictly necessary *)
 
 fun deterministic_seed r = Int.max(1, r mod m)
 
 fun range_int (min, max) r =
-  if min > max then Runtime.exn_trace (raise Fail ("Range_Int: " ^ @{make_string} min ^ " > " ^ @{make_string} max))
+  if min > max
+  then Runtime.exn_trace (raise Fail ("Range_Int: " ^ @{make_string} min ^ " > " ^ @{make_string} max))
   else (min + ((max - min) * r) div m, next r)
 
-(* TODO test whether this works as well as it should *)
 fun split r =
   let
     val r0 = next r
@@ -64,7 +68,8 @@ fun split r =
 
 fun real r = ((Real.fromInt r) / (Real.fromInt m), next r)
 fun range_real (min, max) r =
-  if min > max then raise Fail ("Range_Real: " ^ @{make_string} min ^ " > " ^ @{make_string} max)
+  if min > max
+  then raise Fail ("Range_Real: " ^ @{make_string} min ^ " > " ^ @{make_string} max)
   else real r |>> (fn x => min + x * (max - min))
 
 end

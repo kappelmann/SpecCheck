@@ -1,3 +1,4 @@
+(* Structure containing all Generator functions. Intended as interface. *)
 structure Generator =
 struct
 open Gen_Base
