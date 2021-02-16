@@ -123,10 +123,10 @@ fun typ n =
 
 fun generic_type char 0 =
       let val name = "'" ^ Char.toString (Char.chr (Char.ord #"a" + char)) in
-      TFree (name, ["HOL.type"]) end
+      TVar ((name,0), []) end
   | generic_type char n =
       let val name = "'" ^ Char.toString (Char.chr (Char.ord #"a" + char)) in
-      Type ("fun", [TFree (name, ["HOL.type"]), generic_type (char+1) (n-1)]) end
+      Type ("fun", [TVar ((name,0), []), generic_type (char+1) (n-1)]) end
 
 (* Implement more sophisticated selection. Remember already used variables and their types. *)
 fun name prefix n r =
