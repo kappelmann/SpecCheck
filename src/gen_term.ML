@@ -1,6 +1,7 @@
 (* Implements generators for terms and their types.
 By default all generated symbols and terms have dummyT as their type.
-Infer the type with Syntax.check_term with an appropriate context if needed. *)
+Infer the type with Syntax.check_term with an appropriate context if needed.
+TODO implement wrapper that automatically collects all consts + vars *)
 signature GEN_TERM = sig
   include GEN_BASE
 
