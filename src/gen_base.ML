@@ -2,17 +2,18 @@
     Author:     Lukas Bulwahn and Nicolai Schaffroth, TU Muenchen
     Author:     Christopher League
 
-Basic random generators.
+Basic utility functions to create and combine generators.
 *)
 
 signature GEN_BASE =
 sig
-(* 'a gen consume a random seed and return an unused one. *)
+(* 'a gen consumes a random seed and returns an unused one along with a generated 'a value *)
 type 'a gen = Random.rand -> 'a * Random.rand
-(* ('a,'b) genS additionally consume a state and return a modified state.
-  TODO Currently almost no usage. Theoretically useful for functions that accept stateful gens.
+(* ('a,'b) genS, when compared to `gen`, also consumes a state and returns a modified state.
+  TODO Sebastian: Currently almost no usage.
+  Theoretically useful for functions that accept stateful gens.
   More lightweight than sequences from Seq. *)
-type ('a,'b) genS = ('b * Random.rand) -> 'a * ('b * Random.rand)
+type ('a, 's) genS = ('s * Random.rand) -> 'a * ('s * Random.rand)
 
 val lift : 'a -> 'a gen
 val select : 'a vector -> 'a gen
@@ -30,9 +31,9 @@ val selectW : (real * 'a) vector -> 'a gen
 val chooseWL : (real * 'a gen) list -> 'a gen
 val selectWL : (real * 'a) list -> 'a gen
 
-(* Ensure that all generated values fulfill property. Loops if no value is found. *)
+(* ensure that all generated values fulfill the predicate; loops if the predicate is never
+satisfied by the generated values. *)
 val filter : ('a -> bool) -> 'a gen -> 'a gen
-(* TODO relatively slow and dumb implementation *)
 val shuffle : 'a list -> 'a list gen
 
 val zip : ('a gen * 'b gen) -> ('a * 'b) gen
@@ -43,6 +44,7 @@ val map2 : ('a * 'b -> 'c) -> ('a gen * 'b gen) -> 'c gen
 val map3 : ('a * 'b * 'c -> 'd) -> ('a gen * 'b gen * 'c gen) -> 'd gen
 val map4 : ('a * 'b * 'c * 'd -> 'e) -> ('a gen * 'b gen * 'c gen * 'd gen) -> 'e gen
 
+(* flip p returns true with probability p \<in> [0,1] *)
 val flip : real -> bool gen
 val list : bool gen -> 'a gen -> 'a list gen
 val option : bool gen -> 'a gen -> 'a option gen
@@ -72,7 +74,6 @@ end
 structure Gen_Base : GEN_BASE =
 struct
 
-(* Generators *)
 type 'a gen = Random.rand -> 'a * Random.rand
 type ('a,'b) genS = ('b * Random.rand) -> 'a * ('b * Random.rand)
 
@@ -151,6 +152,7 @@ fun filter p gen r =
     loop (gen r)
   end
 
+(* TODO relatively slow and dumb implementation *)
 fun shuffle [] r = ([],r)
   | shuffle (x::xs) r =
     let

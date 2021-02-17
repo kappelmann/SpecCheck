@@ -14,10 +14,9 @@ sig
 type 'a pred = 'a -> bool
 (* the type of values testable by SpecCheck *)
 type 'a prop
-(* TODO: rename to property *)
 (* transforms a predicate into a testable property *)
-val pred : 'a pred -> 'a prop
-val pred2 : ('a * 'b) pred -> 'b -> 'a prop
+val property : 'a pred -> 'a prop
+val property2 : ('a * 'b) pred -> 'b -> 'a prop
 (* implication for properties: if the first argument evaluates to false, the test case is discarded *)
 val implies : 'a pred * 'a prop -> 'a prop
 (* convenient notation for `implies` working on predicates *)
@@ -52,15 +51,15 @@ fun apply f x =
   (* Testcode may throw arbitrary exceptions. Interrupts MUST not be catched! *)
   handle x => if Exn.is_interrupt x then Exn.reraise x else Exception x
 
-fun pred f x = apply f x
-fun pred2 f z = pred (fn x => f (x, z))
+fun property f x = apply f x
+fun property2 f z = property (fn x => f (x, z))
 
 fun implies (cond, prop) x =
   if cond x
   then prop x
   else Discard
 
-fun ==> (p1, p2) = implies (p1, pred p2)
+fun ==> (p1, p2) = implies (p1, property p2)
 
 fun add_timings {elapsed = elapsed1, cpu = cpu1, gc = gc1} {elapsed = elapsed2, cpu = cpu2, gc = gc2} =
   { elapsed = elapsed1 + elapsed2,

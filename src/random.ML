@@ -27,7 +27,7 @@ val range_int : int * int -> rand -> int * rand
 val range_real : real * real -> rand -> real * rand
 (* real r returns a real in [0;1); theoretically, with 2^31 equidistant discrete values *)
 val real : rand -> real * rand
-
+(* split a seed into two new independent seeds *)
 val split : rand -> rand * rand
 end
 
@@ -66,6 +66,7 @@ fun split r =
   end
 
 fun real r = ((Real.fromInt r) / (Real.fromInt m), next r)
+
 fun range_real (min, max) r =
   if min > max
   then raise Fail ("Range_Real: " ^ @{make_string} min ^ " > " ^ @{make_string} max)
