@@ -56,7 +56,7 @@ fun charRange (lo, hi) = map Char.chr (Random.range_int (Char.ord lo, Char.ord h
 val char = charRange (Char.minChar, Char.maxChar)
 
 fun charFrom s =
-  choose (Vector.tabulate (String.size s, fn i => lift (String.sub (s, i))))
+  oneOf (Vector.tabulate (String.size s, fn i => lift (String.sub (s, i))))
 
 fun charByType p = filter p char
 
@@ -86,7 +86,7 @@ fun digits' n = string (Random.range_int (0, n-1), digit)
 fun digits n = map2 op^ (nonzero, digits' n)
 
 val maxDigits = 64
-val ratio = 49.0
+val ratio = 49
 
 fun pos_or_neg f r =
   let
@@ -97,9 +97,9 @@ val int_pos = pos_or_neg I
 val int_neg = pos_or_neg Int.~
 val zero = lift 0
 
-val int_nonneg = chooseWL [(1.0, zero), (ratio, int_pos)]
-val int_nonpos = chooseWL [(1.0, zero), (ratio, int_neg)]
-val int = chooseL [int_nonneg, int_nonpos]
+val int_nonneg = oneOfWL [(1, zero), (ratio, int_pos)]
+val int_nonpos = oneOfWL [(1, zero), (ratio, int_neg)]
+val int = oneOfL [int_nonneg, int_nonpos]
 
 fun coint n =
   if n = 0 then variant 0
@@ -116,7 +116,7 @@ fun real_frac r =
 val {exp=minExp,...} = Real.toManExp Real.minPos
 val {exp=maxExp,...} = Real.toManExp Real.posInf
 
-val ratio = 99.0
+val ratio = 99
 
 fun mk r =
   let
@@ -128,21 +128,20 @@ fun mk r =
     (the (Real.fromString x), r''')
   end
 
-val real_pos = chooseWL (List.map ((pair 1.0) o lift)
+val real_pos = oneOfWL (List.map ((pair 1) o lift)
     [Real.posInf, Real.maxFinite, Real.minPos, Real.minNormalPos] @ [(ratio, mk)])
 
 val real_neg = map Real.~ real_pos
 
-val real_zero = Real.fromInt 0
-val real_nonneg = chooseWL [(1.0, lift real_zero), (ratio, real_pos)]
-val real_nonpos = chooseWL [(1.0, lift real_zero), (ratio, real_neg)]
+val real_nonneg = oneOfWL [(1, lift 0.0), (ratio, real_pos)]
+val real_nonpos = oneOfWL [(1, lift 0.0), (ratio, real_neg)]
 
-val real = chooseL [real_nonneg, real_nonpos]
+val real = oneOfL [real_nonneg, real_nonpos]
 
 val real_finite = filter Real.isFinite real
 
 (*alternate list generator - uses an integer generator to determine list length*)
-fun list' int gen = vector List.tabulate (int, gen);
+fun list' int gen = vector List.tabulate (int, gen)
 
 (* more function generators *)
 

@@ -15,25 +15,33 @@ type 'a gen = Random.rand -> 'a * Random.rand
   More lightweight than sequences from Seq. *)
 type ('a, 's) genS = ('s * Random.rand) -> 'a * ('s * Random.rand)
 
+(* generator that always returns the passed value *)
 val lift : 'a -> 'a gen
-val select : 'a vector -> 'a gen
-val choose : 'a gen vector -> 'a gen
 
-(* Copy of above with list instead of vector.
-  TODO remove vector implementations completely? *)
-val selectL : 'a list -> 'a gen
-val chooseL : 'a gen list -> 'a gen
+(* randomly generates one of the given values *)
+val elements : 'a vector -> 'a gen
+(* randomly uses one of the given generators *)
+val oneOf : 'a gen vector -> 'a gen
 
-(* Choose based on weight of generators. Total of weights need not be 1.0, therefore:
-  chooseW [(1.0,x),(3.0,y)] == chooseW [(0.25,x),(0.75,y)] *)
-val chooseW : (real * 'a gen) vector -> 'a gen
-val selectW : (real * 'a) vector -> 'a gen
-val chooseWL : (real * 'a gen) list -> 'a gen
-val selectWL : (real * 'a) list -> 'a gen
+(* randomly generates one of the given values *)
+val elementsL : 'a list -> 'a gen
+(* randomly uses one of the given generators *)
+val oneOfL : 'a gen list -> 'a gen
 
-(* ensure that all generated values fulfill the predicate; loops if the predicate is never
+(* chooses one of the given generators with a weighted random distribution. *)
+val oneOfW : (int * 'a gen) vector -> 'a gen
+(* chooses one of the given values with a weighted random distribution. *)
+val elementsW : (int * 'a) vector -> 'a gen
+
+(* chooses one of the given generators with a weighted random distribution. *)
+val oneOfWL : (int * 'a gen) list -> 'a gen
+(* chooses one of the given values with a weighted random distribution. *)
+val elementsWL : (int * 'a) list -> 'a gen
+
+(* ensures that all generated values fulfill the predicate; loops if the predicate is never
 satisfied by the generated values. *)
 val filter : ('a -> bool) -> 'a gen -> 'a gen
+
 val shuffle : 'a list -> 'a list gen
 
 val zip : ('a gen * 'b gen) -> ('a * 'b) gen
@@ -44,8 +52,6 @@ val map2 : ('a * 'b -> 'c) -> ('a gen * 'b gen) -> 'c gen
 val map3 : ('a * 'b * 'c -> 'd) -> ('a gen * 'b gen * 'c gen) -> 'd gen
 val map4 : ('a * 'b * 'c * 'd -> 'e) -> ('a gen * 'b gen * 'c gen * 'd gen) -> 'e gen
 
-(* flip p returns true with probability p \<in> [0,1] *)
-val flip : real -> bool gen
 val list : bool gen -> 'a gen -> 'a list gen
 val option : bool gen -> 'a gen -> 'a option gen
 val vector : (int * (int -> 'a) -> 'b) -> int gen * 'a gen -> 'b gen
@@ -68,6 +74,9 @@ val cobool : (bool, 'b) co
 val colist : ('a, 'b) co -> ('a list, 'b) co
 val coopt : ('a, 'b) co -> ('a option, 'b) co
 
+(* bernoulli random variable with parameter p \<in> [0,1] *)
+val bernoulli : real -> bool gen
+
 val binom_dist : real -> int -> int gen
 end
 
@@ -77,23 +86,11 @@ struct
 type 'a gen = Random.rand -> 'a * Random.rand
 type ('a,'b) genS = ('b * Random.rand) -> 'a * ('b * Random.rand)
 
-fun flip prob r = let val (x,r) = Random.real r in (x < prob, r) end
-
-fun binom_dist _ 0 r = (0,r)
-  | binom_dist p n r =
-    let fun int_of_bool b = if b then 1 else 0 in
-      flip p r
-      |>> int_of_bool
-      ||> binom_dist p (n-1)
-      |> (fn (x,(acc,r)) => (acc + x, r))
-    end
-
 type ('a, 'b) reader = 'b -> ('a * 'b) option
 
 fun lift obj r = (obj, r)
 
-(* Isabelle does not use vectors? *)
-fun choose v r =
+fun oneOf v r =
   let
     val (i, r) = Random.range_int (0, Vector.length v - 1) r
   in
@@ -103,33 +100,32 @@ fun choose v r =
 local
 datatype ('a,'b) either = Left of 'a | Right of 'b
 in
-fun chooseW (v : (real * 'a gen) vector) r =
+fun oneOfW (v : (int * 'a gen) vector) r =
   let
-    val weight_total = Vector.foldl (fn ((freq,_),acc) => freq + acc) 0.0 v
-    fun selectGen _ (_,Left gen) = Left gen
-      | selectGen rand ((weight,gen),Right acc) =
-      let val acc = acc + weight
-      in
-      if rand < acc
-      then Left gen
-      else Right acc      
+    val weight_total = Vector.foldl (fn ((freq,_),acc) => freq + acc) 0 v
+    fun selectGen _ (_, Right gen) = Right gen
+      | selectGen rand ((weight, gen), Left acc) =
+      let val acc = acc + weight in
+        if acc < rand
+        then Left acc
+        else Right gen
       end
-    val (threshhold,r) = Random.range_real (0.0,weight_total) r
-    val gen = case Vector.foldl (selectGen threshhold) (Right 0.0) v of
-        Left gen => gen
-      | Right _ => raise Fail "Error in chooseF"
+    val (threshhold, r) = Random.range_int (0, weight_total) r
+    val gen = case Vector.foldl (selectGen threshhold) (Left 0) v of
+        Right gen => gen
+      | _ => raise Fail "Error in oneOfW - did you pass an empty vector?"
   in
-  gen r
+    gen r
   end
 end
 
-fun select v = choose (Vector.map lift v)
-fun selectW v = chooseW (Vector.map (fn (x,y) => (x,lift y)) v)
+fun elements v = oneOf (Vector.map lift v)
+fun elementsW v = oneOfW (Vector.map (fn p => p ||> lift) v)
 
-fun chooseL l = choose (Vector.fromList l)
-fun chooseWL l = chooseW (Vector.fromList l)
-fun selectL l = select (Vector.fromList l)
-fun selectWL l = selectW (Vector.fromList l)
+fun oneOfL l = oneOf (Vector.fromList l)
+fun oneOfWL l = oneOfW (Vector.fromList l)
+fun elementsL l = elements (Vector.fromList l)
+fun elementsWL l = elementsW (Vector.fromList l)
 
 fun zip (g1, g2) = g1 #-> (fn x1 => g2 #-> (fn x2 => pair (x1, x2)))
 
@@ -152,7 +148,8 @@ fun filter p gen r =
     loop (gen r)
   end
 
-(* TODO relatively slow and dumb implementation *)
+(* TODO relatively slow and dumb implementation; do it like Haskell:
+https://hackage.haskell.org/package/QuickCheck-2.14.2/docs/src/Test.QuickCheck.Gen.html#shuffle *)
 fun shuffle [] r = ([],r)
   | shuffle (x::xs) r =
     let
@@ -162,17 +159,17 @@ fun shuffle [] r = ([],r)
     (take index xs @ [x] @ drop index xs, r)
     end
 
-fun list flip g r =
-  case flip r of
+fun list bool_gen g r =
+  case bool_gen r of
       (true, r) => ([], r)
     | (false, r) =>
       let
         val (x,r) = g r
-        val (xs,r) = list flip g r
+        val (xs,r) = list bool_gen g r
       in (x::xs, r) end
 
-fun option flip g r =
-  case flip r of
+fun option bool_gen g r =
+  case bool_gen r of
     (true, r) => (NONE, r)
   | (false, r) => map SOME g r
 
@@ -232,6 +229,17 @@ fun colist _ [] = variant 0
 
 fun coopt _ NONE = variant 0
   | coopt co (SOME x) = variant 1 o co x
+
+fun bernoulli p r = let val (x,r) = Random.real r in (x <= p, r) end
+
+fun binom_dist _ 0 r = (0,r)
+  | binom_dist p n r =
+    let fun int_of_bool b = if b then 1 else 0 in
+      bernoulli p r
+      |>> int_of_bool
+      ||> binom_dist p (n-1)
+      |> (fn (x,(acc,r)) => (acc + x, r))
+    end
 
 end
 

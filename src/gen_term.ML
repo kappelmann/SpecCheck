@@ -16,12 +16,11 @@ signature GEN_TERM = sig
 
 (* def_sym_gen (weight_free, weight_var, weight_const) max_id num_args
   max_id specifies the largest id used for name generation. It picks a random value from [0,max_id)
-  The weights specify the ratio of symbols (Free, Var, Const) in relation to each other in the term.
-  Sum of weights need not be 1 and each weight can take arbitrary positive values. *)
-  val def_sym_gen : (real * real * real) -> int -> int -> term gen
+  The weights specify the ratio of symbols (Free, Var, Const) in relation to each other in the term. *)
+  val def_sym_gen : (int * int * int) -> int -> int -> term gen
 (* "def_sym_genS weights reuse_prob num_args" is a stateful variant that reuses previously generated
    symbols according to reuse_prob. To do so it uses a state => type is genS.*)
-  val def_sym_genS : real * real * real -> real -> int -> (term, (int list * int list * int list)) genS
+  val def_sym_genS : int * int * int -> real -> int -> (term, (int list * int list * int list)) genS
 
 (* Term generators *)
 
@@ -65,26 +64,26 @@ open Gen_Datatypes
 
 (* Symbols and types *)
 
-val sort_string = selectL ["sort1", "sort2", "sort3"];
-val type_string = selectL ["TCon1", "TCon2", "TCon3"];
-val tvar_string = selectL ["a", "b", "c"];
+val sort_string = elementsL ["sort1", "sort2", "sort3"];
+val type_string = elementsL ["TCon1", "TCon2", "TCon3"];
+val tvar_string = elementsL ["a", "b", "c"];
 
-val func_string = selectL ((Char.ord #"f" upto Char.ord #"h") |> List.map (Char.chr #> Char.toString));
-val const_string = selectL ((Char.ord #"a" upto Char.ord #"f" - 1) |> List.map (Char.chr #> Char.toString));
-val var_string = selectL ((Char.ord #"x" upto Char.ord #"z") |> List.map (Char.chr #> Char.toString));
-val index = selectL [0, 1, 2, 3];
-val bound_index = selectL [0, 1, 2, 3];
+val func_string = elementsL ((Char.ord #"f" upto Char.ord #"h") |> List.map (Char.chr #> Char.toString));
+val const_string = elementsL ((Char.ord #"a" upto Char.ord #"f" - 1) |> List.map (Char.chr #> Char.toString));
+val var_string = elementsL ((Char.ord #"x" upto Char.ord #"z") |> List.map (Char.chr #> Char.toString));
+val index = elementsL [0, 1, 2, 3];
+val bound_index = elementsL [0, 1, 2, 3];
 
-val sort = list (flip (1.0/3.0)) sort_string;
+val sort = list (bernoulli (1.0/3.0)) sort_string;
 
 fun typ n =
   let
-    fun type' m = map Type (zip (type_string, list (flip 0.25) (typ m)))
+    fun type' m = map Type (zip (type_string, list (bernoulli 0.25) (typ m)))
     val tfree = map TFree (zip (tvar_string, sort))
     val tvar = map TVar (zip (zip (tvar_string, index), sort))
   in
-    if n = 0 then chooseL [tfree, tvar]
-    else chooseL [type' (n div 2), tfree, tvar]
+    if n = 0 then oneOfL [tfree, tvar]
+    else oneOfL [type' (n div 2), tfree, tvar]
   end;
 
 fun generic_type char 0 =
@@ -101,7 +100,7 @@ fun free id args = Free ("f" ^ string_of_int args ^ "_" ^ string_of_int id, dumm
 (* Construct a symbol generator by using chooseWL over a list of weights and generators *)
 fun def_sym_gen (weight_free, weight_var, weight_const) max_id num_args r =
   let
-    val (gen,r) = selectWL [(weight_free, free),
+    val (gen,r) = elementsWL [(weight_free, free),
                             (weight_var, var),
                             (weight_const, const)] r
     val (id,r) = Random.range_int (0, max_id) r
@@ -118,7 +117,7 @@ fun incr_nth (x::xs) 0 = x+1 :: xs
 fun def_sym_genS (weight_free, weight_var, weight_const) reuse_prob arg (state as (idfree,idvar,idconst),r) =
   let
     val (reuse_perc,r) = Random.real r
-    val (perc,r) = Random.range_real (0.0, weight_free + weight_var + weight_const) r
+    val (perc,r) = Random.range_int (0, weight_free + weight_var + weight_const) r
     fun f xs = nth xs arg handle Subscript => 0
     val (r1,r) = Random.split r
     val reuse = reuse_perc < reuse_prob
