@@ -51,7 +51,6 @@ fun apply f x =
   handle x => if Exn.is_interrupt x then Exn.reraise x else Exception x
 
 fun property f x = apply f x
-fun property2 f z = property (fn x => f (x, z))
 
 fun implies (cond, prop) x =
   if cond x
