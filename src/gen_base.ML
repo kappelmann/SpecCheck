@@ -110,10 +110,10 @@ fun oneOfW (v : (int * 'a gen) vector) r =
         then Left acc
         else Right gen
       end
-    val (threshhold, r) = Random.range_int (0, weight_total) r
+    val (threshhold, r) = Random.range_int (1, weight_total) r
     val gen = case Vector.foldl (selectGen threshhold) (Left 0) v of
         Right gen => gen
-      | _ => raise Fail "Error in oneOfW - did you pass an empty vector?"
+      | _ => raise Fail "Error in oneOfW - did you pass an empty vector or no positive frequency?"
   in
     gen r
   end
