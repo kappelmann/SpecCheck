@@ -16,7 +16,6 @@ type 'a pred = 'a -> bool
 type 'a prop
 (* transforms a predicate into a testable property *)
 val property : 'a pred -> 'a prop
-val property2 : ('a * 'b) pred -> 'b -> 'a prop
 (* implication for properties: if the first argument evaluates to false, the test case is discarded *)
 val implies : 'a pred * 'a prop -> 'a prop
 (* convenient notation for `implies` working on predicates *)
