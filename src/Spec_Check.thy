@@ -2,6 +2,7 @@ theory Spec_Check
 imports Pure
 begin
 
+ML_file \<open>utils.ML\<close>
 ML_file \<open>random.ML\<close>
 ML_file \<open>property.ML\<close>
 ML_file \<open>gen_base.ML\<close>

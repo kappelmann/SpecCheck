@@ -9,6 +9,7 @@ signature GEN_BASE =
 sig
 (* 'a gen consumes a random seed and returns an unused one along with a generated 'a value *)
 type 'a gen = Random.rand -> 'a * Random.rand
+
 (* ('a,'b) genS, when compared to `gen`, also consumes a state and returns a modified state.
   TODO Sebastian: Currently almost no usage.
   Theoretically useful for functions that accept stateful gens.
@@ -29,6 +30,12 @@ val map4 : ('a -> 'b -> 'c -> 'd -> 'e) -> 'a gen -> 'b gen -> 'c gen -> 'd gen 
 (* ensures that all generated values fulfill the predicate; loops if the predicate is never
 satisfied by the generated values. *)
 val filter : ('a -> bool) -> 'a gen -> 'a gen
+
+(* bernoulli random variable with parameter p \<in> [0,1] *)
+val bernoulli : real -> bool gen
+
+(* random variable following a binomial distribution with parameters p \<in> [0,1] and n \\<ge> 0 *)
+val binom_dist : real -> int -> int gen
 
 (* randomly generates one of the given values *)
 val elements : 'a vector -> 'a gen
@@ -64,29 +71,24 @@ val shuffle : 'a list -> 'a list gen
 (* generates SOME value if passed bool generator returns true and NONE otherwise *)
 val option : bool gen -> 'a gen -> 'a option gen
 
-(* Finite sequence of values
-   Pass initial state and state-update/next function
-   New state is passed to gen, therefore sequence is:
-   [gen (next state), gen (next (next state)), ...] until "next state" returns NONE
-   Can be used for stateful generators but the performance suffers when compared to the genS type.
-*)
-val seq_of_gen : int -> 'a gen -> Random.rand -> 'a Seq.seq
-(* There is no fold predefined for finite seq? Nor a halting version for infinite seq?
-   first argument is the limit, if less than 0 limit is disabled. *)
-val fold_seq : int -> ('a -> 'b -> 'b) -> 'a Seq.seq -> 'b -> 'b
+(* Creates a sequence of values using the passed generator, which depend on the current index
+of the sequence.
+TODO Sebastian: what do you mean by the following line?
+Can be used for stateful generators but the performance suffers when compared to the genS type. *)
+val seq : (int -> 'a option gen) -> 'a Seq.seq gen
 
-type ('a, 'b) co = 'a -> 'b gen -> 'b gen
-val variant : (int, 'b) co
-val arrow : ('a, 'b) co * 'b gen -> ('a -> 'b) gen
-val cobool : (bool, 'b) co
-val colist : ('a, 'b) co -> ('a list, 'b) co
-val coopt : ('a, 'b) co -> ('a option, 'b) co
+(* a cogenerator produces new generators depending on an input element and an existing generator.  *)
+type ('a, 'b) cogen = 'a -> 'b gen -> 'b gen
 
-(* bernoulli random variable with parameter p \<in> [0,1] *)
-val bernoulli : real -> bool gen
+(* function generator *)
+val arrow : ('a, 'b) cogen -> 'b gen -> ('a -> 'b) gen
 
-(* random variable following a binomial distribution with parameters p \<in> [0,1] and n \\<ge> 0 *)
-val binom_dist : real -> int -> int gen
+(* `variant i g` creates the `i`th variant of a given generator. It raises an error if `i` is negative. *)
+val variant : (int, 'b) cogen
+val cobool : (bool, 'b) cogen
+val colist : ('a, 'b) cogen -> ('a list, 'b) cogen
+val cooption : ('a, 'b) cogen -> ('a option, 'b) cogen
+
 end
 
 structure Gen_Base : GEN_BASE =
@@ -94,8 +96,6 @@ struct
 
 type 'a gen = Random.rand -> 'a * Random.rand
 type ('a,'b) genS = ('b * Random.rand) -> 'a * ('b * Random.rand)
-
-type ('a, 'b) reader = 'b -> ('a * 'b) option
 
 fun lift obj r = (obj, r)
 
@@ -115,29 +115,37 @@ fun filter p gen r =
   let fun loop (x, r) = if p x then (x, r) else loop (gen r)
   in loop (gen r) end
 
+fun bernoulli p r = let val (x,r) = Random.real r in (x <= p, r) end
+
+fun binom_dist _ 0 r = (0,r)
+  | binom_dist p n r =
+    let fun int_of_bool b = if b then 1 else 0
+    in
+      bernoulli p r
+      |>> int_of_bool
+      ||> binom_dist p (n-1)
+      |> (fn (x,(acc,r)) => (acc + x, r))
+    end
+
 fun one_of v r =
   let val (i, r) = Random.range_int (0, Vector.length v - 1) r
   in Vector.sub (v, i) r end
 
-local
-datatype ('a,'b) either = Left of 'a | Right of 'b
-in
 fun one_ofW (v : (int * 'a gen) vector) r =
   let
     val weight_total = Vector.foldl (fn ((freq,_),acc) => freq + acc) 0 v
-    fun selectGen _ (_, Right gen) = Right gen
-      | selectGen rand ((weight, gen), Left acc) =
+    fun selectGen _ (_, Utils.Right gen) = Utils.Right gen
+      | selectGen rand ((weight, gen), Utils.Left acc) =
       let val acc = acc + weight
       in if acc < rand
-         then Left acc
-         else Right gen
+         then Utils.Left acc
+         else Utils.Right gen
       end
     val (threshhold, r) = Random.range_int (1, weight_total) r
-    val gen = case Vector.foldl (selectGen threshhold) (Left 0) v of
-        Right gen => gen
+    val gen = case Vector.foldl (selectGen threshhold) (Utils.Left 0) v of
+        Utils.Right gen => gen
       | _ => raise Fail "Error in one_ofW - did you pass an empty vector or invalid frequencies?"
   in gen r end
-end
 
 fun elements v = one_of (Vector.map lift v)
 fun elementsW v = one_ofW (Vector.map (fn p => p ||> lift) v)
@@ -178,57 +186,38 @@ fun option bool_g g r =
     (false, r) => (NONE, r)
   | (true, r) => map SOME g r
 
-fun seq_of_gen limit gen r =
+fun seq gen_of_idx r =
   let
-    fun aux 0 _ _ _ = NONE
-      | aux limit gen r () =
-          let val (v,r) = gen r
-          in SOME (v, Seq.make (aux (limit - 1) gen r)) end
-  in Seq.make (aux limit gen r) end
+    val (r1, r2) = Random.split r
+    fun gen_next idx r () = case gen_of_idx idx r of
+      (NONE, _) => NONE
+    | (SOME v, r) => SOME (v, Seq.make (gen_next (idx + 1) r))
+  in (Seq.make (gen_next 0 r1), r2) end
 
-fun fold_seq limit f seq acc =
-  if limit = 0
-  then acc
-  else
-    case Seq.pull seq of
-      SOME (v,seq) => fold_seq (limit - 1) f seq (f v acc)
-    | NONE => acc
+type ('a, 'b) cogen = 'a -> 'b gen -> 'b gen
 
-
-type ('a, 'b) co = 'a -> 'b gen -> 'b gen
-
-fun variant v g r =
-  let
-    fun nth (i, r) =
-      let val (r1, r2) = Random.split r
-      in if i = 0 then r1 else nth (i-1, r2) end
-  in g (nth (v, r)) end
-
-fun arrow (cogen, gen) r =
+fun arrow cogen gen r =
   let
     val (r1, r2) = Random.split r
     fun g x = fst (cogen x gen r1)
   in (g, r2) end
 
+fun variant i g r =
+  if i < 0 then raise Subscript
+  else
+    let
+      fun nth i r =
+        let val (r1, r2) = Random.split r
+        in if i = 0 then r1 else nth (i-1) r2 end
+    in g (nth i r) end
+
 fun cobool false = variant 0
   | cobool true = variant 1
 
 fun colist _ [] = variant 0
-  | colist co (x::xs) = variant 1 o co x o colist co xs
+  | colist co (x::xs) = colist co xs o co x o variant 1
 
-fun coopt _ NONE = variant 0
-  | coopt co (SOME x) = variant 1 o co x
-
-fun bernoulli p r = let val (x,r) = Random.real r in (x <= p, r) end
-
-fun binom_dist _ 0 r = (0,r)
-  | binom_dist p n r =
-    let fun int_of_bool b = if b then 1 else 0
-    in
-      bernoulli p r
-      |>> int_of_bool
-      ||> binom_dist p (n-1)
-      |> (fn (x,(acc,r)) => (acc + x, r))
-    end
+fun cooption _ NONE = variant 0
+  | cooption co (SOME x) = co x o variant 1
 
 end

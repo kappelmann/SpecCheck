@@ -71,16 +71,19 @@ fun check ctxt stats_init name show seq shrink prop =
   in
   (* TODO Perhaps use ML_Profiling.profile_time to get more accurate results? Far slower *)
     Timing.timing (fn () =>
-      (Generator.fold_seq (~1) iter seq (stats_init, []) handle EarlyReturn x => x)
+      (Utils.fold_seq iter seq (stats_init, []) handle EarlyReturn x => x)
       ||> apply_show) ()
     |-> print_result
-  end          
+  end
 
-(* Limit is set here instead of in the check function above because only randomly generated values require a limit *)
-fun limit ctxt gen =
-  Generator.seq_of_gen
-    (Config.get ctxt Configuration.gen_target * Config.get ctxt Configuration.max_discard_ratio)
-    gen
+(* Limit is set here instead of in the check function above because only randomly generated values
+require a limit *)
+fun limit ctxt g =
+  let
+    val steps = Config.get ctxt Configuration.gen_target *
+      Config.get ctxt Configuration.max_discard_ratio
+    fun opt_g i = if i >= steps then Generator.lift NONE else Generator.map SOME g
+  in fst o Generator.seq opt_g end
 
 fun check_gen ctxt name gen show prop r =
   check ctxt (Property.empty_stats true) name show (limit ctxt gen r) (fn _ => []) prop

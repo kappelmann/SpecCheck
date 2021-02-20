@@ -14,16 +14,16 @@ signature GEN_DATATYPES = sig
   val charByType : (char -> bool) -> char gen
   val string : int gen -> char gen -> string gen
   val substring : string gen -> substring gen
-  val cochar : (char, 'b) co
-  val costring : (string, 'b) co
-  val cosubstring : (substring, 'b) co
+  val cochar : (char, 'b) cogen
+  val costring : (string, 'b) cogen
+  val cosubstring : (substring, 'b) cogen
   (* integer generators *)
   val int : int gen
   val int_pos : int gen
   val int_neg : int gen
   val int_nonpos : int gen
   val int_nonneg : int gen
-  val coint : (int, 'b) co
+  val coint : (int, 'b) cogen
   (* real generators *)
   val real : real gen
   val real_frac : real gen
