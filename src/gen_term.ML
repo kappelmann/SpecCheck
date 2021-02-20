@@ -74,16 +74,16 @@ val var_string = elementsL ((Char.ord #"x" upto Char.ord #"z") |> List.map (Char
 val index = elementsL [0, 1, 2, 3];
 val bound_index = elementsL [0, 1, 2, 3];
 
-val sort = list (bernoulli (1.0/3.0)) sort_string;
+val sort = unfold_while (K (bernoulli (1.0/3.0))) sort_string;
 
 fun typ n =
   let
-    fun type' m = map Type (zip (type_string, list (bernoulli 0.25) (typ m)))
-    val tfree = map TFree (zip (tvar_string, sort))
-    val tvar = map TVar (zip (zip (tvar_string, index), sort))
+    fun type' m = zip type_string (unfold_while (K (bernoulli 0.25)) (typ m)) |> map Type
+    val tfree = zip tvar_string sort |> map TFree
+    val tvar = zip (zip tvar_string index) sort |> map TVar
   in
-    if n = 0 then oneOfL [tfree, tvar]
-    else oneOfL [type' (n div 2), tfree, tvar]
+    if n = 0 then one_ofL [tfree, tvar]
+    else one_ofL [type' (n div 2), tfree, tvar]
   end;
 
 fun generic_type char 0 =

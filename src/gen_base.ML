@@ -18,43 +18,51 @@ type ('a, 's) genS = ('s * Random.rand) -> 'a * ('s * Random.rand)
 (* generator that always returns the passed value *)
 val lift : 'a -> 'a gen
 
-(* randomly generates one of the given values *)
-val elements : 'a vector -> 'a gen
-(* randomly uses one of the given generators *)
-val oneOf : 'a gen vector -> 'a gen
-
-(* randomly generates one of the given values *)
-val elementsL : 'a list -> 'a gen
-(* randomly uses one of the given generators *)
-val oneOfL : 'a gen list -> 'a gen
-
-(* chooses one of the given generators with a weighted random distribution. *)
-val oneOfW : (int * 'a gen) vector -> 'a gen
-(* chooses one of the given values with a weighted random distribution. *)
-val elementsW : (int * 'a) vector -> 'a gen
-
-(* chooses one of the given generators with a weighted random distribution. *)
-val oneOfWL : (int * 'a gen) list -> 'a gen
-(* chooses one of the given values with a weighted random distribution. *)
-val elementsWL : (int * 'a) list -> 'a gen
+val zip : 'a gen -> 'b gen -> ('a * 'b) gen
+val zip3 : 'a gen -> 'b gen -> 'c gen -> ('a * 'b * 'c) gen
+val zip4 : 'a gen -> 'b gen -> 'c gen -> 'd gen -> ('a * 'b * 'c * 'd) gen
+val map : ('a -> 'b) -> 'a gen -> 'b gen
+val map2 : ('a -> 'b -> 'c) -> 'a gen -> 'b gen -> 'c gen
+val map3 : ('a -> 'b -> 'c -> 'd) -> 'a gen -> 'b gen -> 'c gen -> 'd gen
+val map4 : ('a -> 'b -> 'c -> 'd -> 'e) -> 'a gen -> 'b gen -> 'c gen -> 'd gen -> 'e gen
 
 (* ensures that all generated values fulfill the predicate; loops if the predicate is never
 satisfied by the generated values. *)
 val filter : ('a -> bool) -> 'a gen -> 'a gen
 
+(* randomly generates one of the given values *)
+val elements : 'a vector -> 'a gen
+(* randomly uses one of the given generators *)
+val one_of : 'a gen vector -> 'a gen
+
+(* randomly generates one of the given values *)
+val elementsL : 'a list -> 'a gen
+(* randomly uses one of the given generators *)
+val one_ofL : 'a gen list -> 'a gen
+
+(* chooses one of the given generators with a weighted random distribution. *)
+val one_ofW : (int * 'a gen) vector -> 'a gen
+(* chooses one of the given values with a weighted random distribution. *)
+val elementsW : (int * 'a) vector -> 'a gen
+
+(* chooses one of the given generators with a weighted random distribution. *)
+val one_ofWL : (int * 'a gen) list -> 'a gen
+(* chooses one of the given values with a weighted random distribution. *)
+val elementsWL : (int * 'a) list -> 'a gen
+
+(* creates a vector of length as returned by the passed int generator *)
+val vector : int gen -> 'a gen -> 'a vector gen
+
+(* creates a list of length as returned by the passed int generator *)
+val list : int gen -> 'a gen -> 'a list gen
+(* generates elements until the passed (generator) predicate fails;
+returns a list of all values that satisfied the predicate *)
+val unfold_while : ('a -> bool gen) -> 'a gen -> 'a list gen
+(* generates a random permutation of the given list *)
 val shuffle : 'a list -> 'a list gen
 
-val zip : ('a gen * 'b gen) -> ('a * 'b) gen
-val zip3 : ('a gen * 'b gen * 'c gen) -> ('a * 'b * 'c) gen
-val zip4 : ('a gen * 'b gen * 'c gen * 'd gen) -> ('a * 'b * 'c * 'd) gen
-val map : ('a -> 'b) -> 'a gen -> 'b gen
-val map2 : ('a * 'b -> 'c) -> ('a gen * 'b gen) -> 'c gen
-val map3 : ('a * 'b * 'c -> 'd) -> ('a gen * 'b gen * 'c gen) -> 'd gen
-val map4 : ('a * 'b * 'c * 'd -> 'e) -> ('a gen * 'b gen * 'c gen * 'd gen) -> 'e gen
-
-val list : bool gen -> 'a gen -> 'a list gen
+(* generates SOME value if passed bool generator returns true and NONE otherwise *)
 val option : bool gen -> 'a gen -> 'a option gen
-val vector : (int * (int -> 'a) -> 'b) -> int gen * 'a gen -> 'b gen
 
 (* Finite sequence of values
    Pass initial state and state-update/next function
@@ -77,6 +85,7 @@ val coopt : ('a, 'b) co -> ('a option, 'b) co
 (* bernoulli random variable with parameter p \<in> [0,1] *)
 val bernoulli : real -> bool gen
 
+(* random variable following a binomial distribution with parameters p \<in> [0,1] and n \\<ge> 0 *)
 val binom_dist : real -> int -> int gen
 end
 
@@ -90,110 +99,92 @@ type ('a, 'b) reader = 'b -> ('a * 'b) option
 
 fun lift obj r = (obj, r)
 
-fun oneOf v r =
-  let
-    val (i, r) = Random.range_int (0, Vector.length v - 1) r
-  in
-  Vector.sub (v, i) r
-  end
+fun zip g1 g2 =
+  g1 #-> (fn x1 => g2 #-> (fn x2 => pair (x1, x2)))
+fun zip3 g1 g2 g3 =
+  zip g1 (zip g2 g3) #-> (fn (x1, (x2, x3)) => pair (x1, x2, x3))
+fun zip4 g1 g2 g3 g4 =
+  zip (zip g1 g2) (zip g3 g4) #-> (fn ((x1, x2), (x3, x4)) => pair (x1, x2, x3, x4))
+
+fun map f g = g #>> f
+fun map2 f = map (uncurry f) oo zip
+fun map3 f = map (fn (a,b,c) => f a b c) ooo zip3
+fun map4 f = map (fn (a,b,c,d) => f a b c d) oooo zip4
+
+fun filter p gen r =
+  let fun loop (x, r) = if p x then (x, r) else loop (gen r)
+  in loop (gen r) end
+
+fun one_of v r =
+  let val (i, r) = Random.range_int (0, Vector.length v - 1) r
+  in Vector.sub (v, i) r end
 
 local
 datatype ('a,'b) either = Left of 'a | Right of 'b
 in
-fun oneOfW (v : (int * 'a gen) vector) r =
+fun one_ofW (v : (int * 'a gen) vector) r =
   let
     val weight_total = Vector.foldl (fn ((freq,_),acc) => freq + acc) 0 v
     fun selectGen _ (_, Right gen) = Right gen
       | selectGen rand ((weight, gen), Left acc) =
-      let val acc = acc + weight in
-        if acc < rand
-        then Left acc
-        else Right gen
+      let val acc = acc + weight
+      in if acc < rand
+         then Left acc
+         else Right gen
       end
     val (threshhold, r) = Random.range_int (1, weight_total) r
     val gen = case Vector.foldl (selectGen threshhold) (Left 0) v of
         Right gen => gen
-      | _ => raise Fail "Error in oneOfW - did you pass an empty vector or no positive frequency?"
-  in
-    gen r
-  end
+      | _ => raise Fail "Error in one_ofW - did you pass an empty vector or invalid frequencies?"
+  in gen r end
 end
 
-fun elements v = oneOf (Vector.map lift v)
-fun elementsW v = oneOfW (Vector.map (fn p => p ||> lift) v)
+fun elements v = one_of (Vector.map lift v)
+fun elementsW v = one_ofW (Vector.map (fn p => p ||> lift) v)
 
-fun oneOfL l = oneOf (Vector.fromList l)
-fun oneOfWL l = oneOfW (Vector.fromList l)
+fun one_ofL l = one_of (Vector.fromList l)
+fun one_ofWL l = one_ofW (Vector.fromList l)
 fun elementsL l = elements (Vector.fromList l)
 fun elementsWL l = elementsW (Vector.fromList l)
 
-fun zip (g1, g2) = g1 #-> (fn x1 => g2 #-> (fn x2 => pair (x1, x2)))
+fun list length_g g r =
+  let val (l, r) = length_g r
+  in fold_map (K g) (map_range I l) r end
 
-fun zip3 (g1, g2, g3) =
-  zip (g1, zip (g2, g3)) #-> (fn (x1, (x2, x3)) => pair (x1, x2, x3))
-
-fun zip4 (g1, g2, g3, g4) =
-  zip (zip (g1, g2), zip (g3, g4)) #-> (fn ((x1, x2), (x3, x4)) => pair (x1, x2, x3, x4))
-
-fun map f g = apfst f o g
-
-fun map2 f = map f o zip
-fun map3 f = map f o zip3
-fun map4 f = map f o zip4
-
-fun filter p gen r =
+fun unfold_while bool_g_of_elem g r =
   let
-    fun loop (x, r) = if p x then (x, r) else loop (gen r)
-  in
-    loop (gen r)
-  end
-
-(* TODO relatively slow and dumb implementation; do it like Haskell:
-https://hackage.haskell.org/package/QuickCheck-2.14.2/docs/src/Test.QuickCheck.Gen.html#shuffle *)
-fun shuffle [] r = ([],r)
-  | shuffle (x::xs) r =
-    let
-      val (index,r) = Random.range_int (0, length xs) r
-      val (xs,r) = shuffle xs r
-    in
-    (take index xs @ [x] @ drop index xs, r)
-    end
-
-fun list bool_gen g r =
-  case bool_gen r of
-      (true, r) => ([], r)
-    | (false, r) =>
+    fun unfold_while_accum (xs, r) =
       let
-        val (x,r) = g r
-        val (xs,r) = list bool_gen g r
-      in (x::xs, r) end
+        val (x, r) = g r
+        val (continue, r) = bool_g_of_elem x r
+      in
+        if continue
+        then unfold_while_accum (x::xs, r)
+        else (xs, r)
+      end
+  in unfold_while_accum ([], r) end
 
-fun option bool_gen g r =
-  case bool_gen r of
-    (true, r) => (NONE, r)
-  | (false, r) => map SOME g r
-
-fun vector tabulate (int, elem) r =
+fun shuffle xs r =
   let
-    val (n, r) = int r
-    val p = Unsynchronized.ref r
-    fun g _ =
-      let
-        val (x,r) = elem(!p)
-      in x before p := r end
-  in
-    (tabulate(n, g), !p)
-  end
+    val (ns, r) = list (fn r => (length xs, r)) (Random.real) r
+    val real_ord = make_ord (op <=)
+    val xs = ListPair.zip (ns, xs) |> sort (real_ord o apply2 fst) |> List.map snd
+  in (xs, r) end
+
+fun vector length_g g = list length_g g #>> Vector.fromList
+
+fun option bool_g g r =
+  case bool_g r of
+    (false, r) => (NONE, r)
+  | (true, r) => map SOME g r
 
 fun seq_of_gen limit gen r =
   let
     fun aux 0 _ _ _ = NONE
       | aux limit gen r () =
-          let val (v,r) = gen r in
-          SOME (v, Seq.make (aux (limit - 1) gen r)) end
-  in
-    Seq.make (aux limit gen r)
-  end
+          let val (v,r) = gen r
+          in SOME (v, Seq.make (aux (limit - 1) gen r)) end
+  in Seq.make (aux limit gen r) end
 
 fun fold_seq limit f seq acc =
   if limit = 0
@@ -211,9 +202,7 @@ fun variant v g r =
     fun nth (i, r) =
       let val (r1, r2) = Random.split r
       in if i = 0 then r1 else nth (i-1, r2) end
-  in
-    g (nth (v, r))
-  end
+  in g (nth (v, r)) end
 
 fun arrow (cogen, gen) r =
   let
@@ -234,7 +223,8 @@ fun bernoulli p r = let val (x,r) = Random.real r in (x <= p, r) end
 
 fun binom_dist _ 0 r = (0,r)
   | binom_dist p n r =
-    let fun int_of_bool b = if b then 1 else 0 in
+    let fun int_of_bool b = if b then 1 else 0
+    in
       bernoulli p r
       |>> int_of_bool
       ||> binom_dist p (n-1)
@@ -242,4 +232,3 @@ fun binom_dist _ 0 r = (0,r)
     end
 
 end
-

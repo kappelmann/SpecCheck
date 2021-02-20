@@ -12,7 +12,7 @@ signature GEN_DATATYPES = sig
   val charRange : char * char -> char gen
   val charFrom : string -> char gen
   val charByType : (char -> bool) -> char gen
-  val string : (int gen * char gen) -> string gen
+  val string : int gen -> char gen -> string gen
   val substring : string gen -> substring gen
   val cochar : (char, 'b) co
   val costring : (string, 'b) co
@@ -56,11 +56,11 @@ fun charRange (lo, hi) = map Char.chr (Random.range_int (Char.ord lo, Char.ord h
 val char = charRange (Char.minChar, Char.maxChar)
 
 fun charFrom s =
-  oneOf (Vector.tabulate (String.size s, fn i => lift (String.sub (s, i))))
+  one_of (Vector.tabulate (String.size s, fn i => lift (String.sub (s, i))))
 
 fun charByType p = filter p char
 
-val string = vector CharVector.tabulate
+fun string length_g g = list length_g g #>> CharVector.fromList
 
 fun substring gen r =
   let
@@ -81,9 +81,9 @@ fun costring s = cosubstring (Substring.full s)
 
 (* integers *)
 val digit = charRange (#"0", #"9")
-val nonzero = string (lift 1, charRange (#"1", #"9"))
-fun digits' n = string (Random.range_int (0, n-1), digit)
-fun digits n = map2 op^ (nonzero, digits' n)
+val nonzero = string (lift 1) (charRange (#"1", #"9"))
+fun digits' n = string (Random.range_int (0, n-1)) digit
+fun digits n = map2 (curry op^) nonzero (digits' n)
 
 val maxDigits = 64
 val ratio = 49
@@ -97,9 +97,9 @@ val int_pos = pos_or_neg I
 val int_neg = pos_or_neg Int.~
 val zero = lift 0
 
-val int_nonneg = oneOfWL [(1, zero), (ratio, int_pos)]
-val int_nonpos = oneOfWL [(1, zero), (ratio, int_neg)]
-val int = oneOfL [int_nonneg, int_nonpos]
+val int_nonneg = one_ofWL [(1, zero), (ratio, int_pos)]
+val int_nonpos = one_ofWL [(1, zero), (ratio, int_neg)]
+val int = one_ofL [int_nonneg, int_nonpos]
 
 fun coint n =
   if n = 0 then variant 0
@@ -107,7 +107,7 @@ fun coint n =
   else variant 2 o coint (n div 2)
 
 (* reals *)
-val digits = string (Random.range_int (1, Real.precision), charRange(#"0", #"9"))
+val digits = string (Random.range_int (1, Real.precision)) (charRange (#"0", #"9"))
 
 fun real_frac r =
   let val (s, r') = digits r
@@ -128,20 +128,17 @@ fun mk r =
     (the (Real.fromString x), r''')
   end
 
-val real_pos = oneOfWL (List.map ((pair 1) o lift)
+val real_pos = one_ofWL (List.map ((pair 1) o lift)
     [Real.posInf, Real.maxFinite, Real.minPos, Real.minNormalPos] @ [(ratio, mk)])
 
 val real_neg = map Real.~ real_pos
 
-val real_nonneg = oneOfWL [(1, lift 0.0), (ratio, real_pos)]
-val real_nonpos = oneOfWL [(1, lift 0.0), (ratio, real_neg)]
+val real_nonneg = one_ofWL [(1, lift 0.0), (ratio, real_pos)]
+val real_nonpos = one_ofWL [(1, lift 0.0), (ratio, real_neg)]
 
-val real = oneOfL [real_nonneg, real_nonpos]
+val real = one_ofL [real_nonneg, real_nonpos]
 
 val real_finite = filter Real.isFinite real
-
-(*alternate list generator - uses an integer generator to determine list length*)
-fun list' int gen = vector List.tabulate (int, gen)
 
 (* more function generators *)
 
@@ -153,7 +150,7 @@ fun function_const (_, gen2) r =
 fun function_strict size (gen1, gen2) r =
   let
     val (def, r') = gen2 r
-    val (table, r'') = list' (fn s => (size, s)) (zip (gen1, gen2)) r'
+    val (table, r'') = list (lift size) (zip gen1 gen2) r'
   in (fn v1 => the_default def (AList.lookup (op =) table v1), r'') end;
 
 fun function_lazy (gen1, gen2) r =

@@ -17,7 +17,7 @@ type 'a prop
 (* transforms a predicate into a testable property *)
 val property : 'a pred -> 'a prop
 (* implication for properties: if the first argument evaluates to false, the test case is discarded *)
-val implies : 'a pred * 'a prop -> 'a prop
+val implies : 'a pred -> 'a prop -> 'a prop
 (* convenient notation for `implies` working on predicates *)
 val ==> : 'a pred * 'a pred -> 'a prop
 
@@ -52,12 +52,12 @@ fun apply f x =
 
 fun property f x = apply f x
 
-fun implies (cond, prop) x =
+fun implies cond prop x =
   if cond x
   then prop x
   else Discard
 
-fun ==> (p1, p2) = implies (p1, property p2)
+fun ==> (p1, p2) = implies p1 (property p2)
 
 fun add_timings {elapsed = elapsed1, cpu = cpu1, gc = gc1} {elapsed = elapsed2, cpu = cpu2, gc = gc2} =
   { elapsed = elapsed1 + elapsed2,
@@ -68,9 +68,6 @@ fun test prop (input, {count, generated, timing}) =
   let
     val (time, result) = Timing.timing (fn () => prop input) ()
     val stats = {count = count + 1, generated = generated, timing = add_timings timing time}
-  in
-  (result, stats)
-  end
-  
+  in (result, stats) end
 
 end

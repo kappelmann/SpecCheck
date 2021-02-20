@@ -27,7 +27,7 @@ val range_int : int * int -> rand -> int * rand
 val range_real : real * real -> rand -> real * rand
 (* real r returns a real in [0;1); theoretically, with 2^31 equidistant discrete values *)
 val real : rand -> real * rand
-(* split a seed into two new independent seeds *)
+(* splits a seed into two new independent seeds *)
 val split : rand -> rand * rand
 end
 
@@ -61,9 +61,7 @@ fun split r =
   let
     val r0 = next r
     val r1 = r - r0
-  in
-    (next r0, next r1)
-  end
+  in (next r0, next r1) end
 
 fun real r = ((Real.fromInt r) / (Real.fromInt m), next r)
 
