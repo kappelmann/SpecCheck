@@ -3,28 +3,27 @@ By default all generated symbols and terms have dummyT as their type.
 Infer the type with Syntax.check_term with an appropriate context if needed.
 TODO implement wrapper that automatically collects all consts + vars *)
 signature GEN_TERM = sig
-  include GEN_BASE
 
-(* Symbol and type generators
+  (* Symbol and type generators
    symbols have no unique type but are a subset of term, therefore the sym_gens have type "term gen"
    "free id args" returns a Free symbol with the pattern "f<args>_<id>". That is, args is used in
    the name to identify the type and id is used as an identifier differentiating it from other Frees. *)
   val free : int -> int -> term
   val var : int -> int -> term
   val const : int -> int -> term
-  val typ : int -> typ gen
+  val typ : int -> typ Gen_Types.gen
 
-(* def_sym_gen (weight_free, weight_var, weight_const) max_id num_args
+  (* def_sym_gen (weight_free, weight_var, weight_const) max_id num_args
   max_id specifies the largest id used for name generation. It picks a random value from [0,max_id)
   The weights specify the ratio of symbols (Free, Var, Const) in relation to each other in the term. *)
-  val def_sym_gen : (int * int * int) -> int -> int -> term gen
-(* "def_sym_genS weights reuse_prob num_args" is a stateful variant that reuses previously generated
+  val def_sym_gen : (int * int * int) -> int -> int -> term Gen_Types.gen
+  (* "def_sym_genS weights reuse_prob num_args" is a stateful variant that reuses previously generated
    symbols according to reuse_prob. To do so it uses a state => type is genS.*)
-  val def_sym_genS : int * int * int -> real -> int -> (term, (int list * int list * int list)) genS
+  val def_sym_genS : int * int * int -> real -> int -> (term, (int list * int list * int list)) Gen_Types.genS
 
-(* Term generators *)
+  (* Term generators *)
 
-(* "term_det f init_state" where "f height index state" returns "(symbol, num_args, new_state)"
+  (* "term_det f init_state" where "f height index state" returns "(symbol, num_args, new_state)"
   generates a term deterministically by applying f to every node and expanding that node depending
   on the num_args that f returns.
   Traversal is: function \<rightarrow> first argument \<rightarrow> ... \<rightarrow> last argument
@@ -44,23 +43,23 @@ signature GEN_TERM = sig
   *)
   val term_det : (int -> int -> 'a -> term * int * 'a) -> 'a -> term * 'a
 
-(* See above. f now takes a (Symbol * index_of_arg) list which specifies the path from the root to
+  (* See above. f now takes a (Symbol * index_of_arg) list which specifies the path from the root to
   the current node *)
   val term_det_path : ((term * int) list -> 'a -> term * int * 'a) -> 'a -> term
 
-(* "term_fol symbol_gen avg_args num_sym" returns a random generator for terms
+  (* "term_fol symbol_gen avg_args num_sym" returns a random generator for terms
   symbol_gen takes number of arguments and returns a symbol.
   No state is passed around. Use term_det or ref if you need to.
   avg_args specifies the average number of arguments of every function.
   num_sym specifies the upper bound on the amount of symbols. Term may contain less symbols.
   TODO remove as it is not as useful as thought? *)
-  val term_fol : (int -> term gen) -> int -> int -> term gen
+  val term_fol : (int -> term Gen_Types.gen) -> int -> int -> term Gen_Types.gen
 end
 
 structure Gen_Term : GEN_TERM =
 struct
 
-open Gen_Datatypes
+open Gen_Base
 
 (* Symbols and types *)
 
@@ -103,7 +102,7 @@ fun def_sym_gen (weight_free, weight_var, weight_const) max_id num_args r =
     val (gen,r) = elementsWL [(weight_free, free),
                             (weight_var, var),
                             (weight_const, const)] r
-    val (id,r) = Random.range_int (0, max_id) r
+    val (id,r) = range_int (0, max_id) r
     val symbol = gen id num_args
   in
   (symbol, r)
@@ -117,13 +116,13 @@ fun incr_nth (x::xs) 0 = x+1 :: xs
 fun def_sym_genS (weight_free, weight_var, weight_const) reuse_prob arg (state as (idfree,idvar,idconst),r) =
   let
     val (reuse_perc,r) = Random.real r
-    val (perc,r) = Random.range_int (0, weight_free + weight_var + weight_const) r
+    val (perc,r) = range_int (0, weight_free + weight_var + weight_const) r
     fun f xs = nth xs arg handle Subscript => 0
     val (r1,r) = Random.split r
     val reuse = reuse_perc < reuse_prob
     fun range id =
       if reuse
-      then Random.range_int (0,id+1) r1 |> fst
+      then range_int (0,id+1) r1 |> fst
       else id + 1
     val (sym,state) =
       if perc < weight_free
@@ -156,7 +155,7 @@ fun get_num_args avg_args num_sym r =
   |>> clamp (0,num_sym)
 
 fun distribute_num_sym num_args num_sym r =
-  let fun f (acc,r) = Random.range_int (0,num_args - 1) r |>> (fn x => x::acc)
+  let fun f (acc,r) = range_int (0,num_args - 1) r |>> (fn x => x::acc)
       val (intervals,r) = fold (fn _ => f) (1 upto num_args - 1) ([],r) |>> Library.sort int_ord
       val intervals = 0::intervals @ [num_sym]
       val args_size = ListPair.zip (tl intervals, intervals) |> List.map (fn (x,y) => x - y)

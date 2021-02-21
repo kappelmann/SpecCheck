@@ -5,7 +5,7 @@
 Constructing generators and pretty printing function for complex types.
 *)
 
-signature GEN_CONSTRUCTION =
+signature CONSTRUCT_GEN =
 sig
   val register : string * (string * string) -> theory -> theory
   type mltype
@@ -16,7 +16,7 @@ sig
   val string_of_ref : ('a -> string) -> 'a Unsynchronized.ref -> string
 end;
 
-structure Gen_Construction : GEN_CONSTRUCTION =
+structure Construct_Gen : CONSTRUCT_GEN =
 struct
 
 (* Parsing ML types *)
@@ -92,14 +92,14 @@ fun string_of_ref f r = f (!r) ^ " ref";
 
 val initial_content = Symtab.make
   [("bool", ("Generator.bernoulli 0.5", "Gen_Construction.string_of_bool")),
-  ("option", ("Generator.option (Generator.bernoulli (1.0 / 3.0))", "ML_Syntax.print_option")),
-  ("list", ("Generator.unfold_while (K (Generator.bernoulli (1.0 / 3.0)))", "ML_Syntax.print_list")),
+  ("option", ("Generator.option (Generator.bernoulli (2.0 / 3.0))", "ML_Syntax.print_option")),
+  ("list", ("Generator.unfold_while (K (Generator.bernoulli (2.0 / 3.0)))", "ML_Syntax.print_list")),
   ("unit", ("gen_unit", "fn () => \"()\"")),
-  ("int", ("Generator.int", "string_of_int")),
+  ("int", ("Generator.range_int (-2147483647,2147483647)", "string_of_int")),
   ("real", ("Generator.real", "string_of_real")),
   ("char", ("Generator.char", "fn c => \"#'\" ^ (Char.toString c) ^ \"'\"")),
   ("string", ("Generator.string (Random.range (0, 100)) Generator.char", "ML_Syntax.print_string")),
-  ("->", ("Generator.function_lazy", "fn (_, _) => fn _ => \"fn\"")),
+  ("->", ("Generator.function' o snd", "fn (_, _) => fn _ => \"fn\"")),
   ("typ", ("Generator.typ 10", "ML_Syntax.print_typ")),
   ("term", ("Generator.term_det (fn h => fn i => fn r => let val (s,r) = Generator.def_sym_gen (1,1,1) 20 (4-h) r in (s,4-h,r) end)",
           "ML_Syntax.print_term"))]
@@ -129,7 +129,7 @@ fun remove_gen ty = gen_table := AList.delete (op =) ty (!gen_table);
 fun combine dict [] = dict
   | combine dict dicts = enclose "(" ")" dict ^ " " ^ enclose "(" ")" (commas dicts)
 
-fun compose_generator _ Var = "Generator.int"
+fun compose_generator _ Var = "Generator.range_int (~2147483647, 2147483647)"
   | compose_generator ctxt (Con (s, types)) =
       combine (generator_of ctxt s) (map (compose_generator ctxt) types)
   | compose_generator ctxt (Tuple t) =
@@ -141,7 +141,7 @@ fun compose_generator _ Var = "Generator.int"
       in
         "fn r0 => let " ^ tuple_body t ^
         "in ((" ^ tuple_ret (length t) ^ "), r" ^ string_of_int (length t) ^ ") end"
-      end;
+      end
 
 fun compose_printer _ Var = "Int.toString"
   | compose_printer ctxt (Con (s, types)) =

@@ -3,7 +3,7 @@
     Author:     Christopher League
 
 The base module of testable properties.
-A property is a the type of values that SpecCheck know how to test.
+A property is a the type of values that SpecCheck knows how to test.
 Properties not only test whether a given predicate holds, but, for example, can also track argument
 distributions and runtimes and have preconditions.
 *)
@@ -11,23 +11,23 @@ distributions and runtimes and have preconditions.
 signature PROPERTY =
 sig
 
-type 'a pred = 'a -> bool
-(* the type of values testable by SpecCheck *)
-type 'a prop
-(* transforms a predicate into a testable property *)
-val property : 'a pred -> 'a prop
-(* implication for properties: if the first argument evaluates to false, the test case is discarded *)
-val implies : 'a pred -> 'a prop -> 'a prop
-(* convenient notation for `implies` working on predicates *)
-val ==> : 'a pred * 'a pred -> 'a prop
-
-datatype result = Result of bool | Discard | Exception of exn
-
-type stats = { count : int, generated : bool, timing : Timing.timing }
-(* runs a property for a given test case and returns the result and the updated the statistics *)
-val test : 'a prop -> 'a * stats -> result * stats
-(* TODO Sebastian: what's the generated flag in stats? *)
-val empty_stats : bool -> stats
+  type 'a pred = 'a -> bool
+  (* the type of values testable by SpecCheck *)
+  type 'a prop
+  (* transforms a predicate into a testable property *)
+  val property : 'a pred -> 'a prop
+  (* implication for properties: if the first argument evaluates to false, the test case is discarded *)
+  val implies : 'a pred -> 'a prop -> 'a prop
+  (* convenient notation for `implies` working on predicates *)
+  val ==> : 'a pred * 'a pred -> 'a prop
+  
+  datatype result = Result of bool | Discard | Exception of exn
+  
+  type stats = { count : int, generated : bool, timing : Timing.timing }
+  (* runs a property for a given test case and returns the result and the updated the statistics *)
+  val test : 'a prop -> 'a * stats -> result * stats
+  (* TODO Sebastian: what's the generated flag in stats? *)
+  val empty_stats : bool -> stats
 
 end
 

@@ -29,8 +29,8 @@ fun check ctxt stats_init name show seq shrink prop =
   let
     fun apply_show xs =
       case show of
-        SOME f => Output_Style.Left (map f xs)
-      | NONE => Output_Style.Right (length xs)
+        SOME f => Util.Left (map f xs)
+      | NONE => Util.Right (length xs)
     val print_result = Output_Style.get_style ctxt name
     fun test_input input stats = Property.test prop (input, stats)
 
@@ -71,7 +71,7 @@ fun check ctxt stats_init name show seq shrink prop =
   in
   (* TODO Perhaps use ML_Profiling.profile_time to get more accurate results? Far slower *)
     Timing.timing (fn () =>
-      (Utils.fold_seq iter seq (stats_init, []) handle EarlyReturn x => x)
+      (Util.fold_seq iter seq (stats_init, []) handle EarlyReturn x => x)
       ||> apply_show) ()
     |-> print_result
   end

@@ -4,7 +4,7 @@
 Some utility functions that maybe should be put somewhere else in Pure.
 *)
 
-signature UTILS =
+signature UTIL =
 sig
 
 datatype ('a,'b) either = Left of 'a | Right of 'b
@@ -18,7 +18,7 @@ val fold_seq_bounded : int -> ('a -> 'b -> 'b) -> 'a Seq.seq -> 'b -> 'b
 
 end
 
-structure Utils : UTILS =
+structure Util : UTIL =
 struct
 
 datatype ('a,'b) either = Left of 'a | Right of 'b
