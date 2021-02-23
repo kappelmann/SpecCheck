@@ -7,9 +7,11 @@ Output styles for presenting Spec_Check's results.
 
 signature OUTPUT_STYLE =
 sig
-  type output_style = Proof.context -> string -> Timing.timing -> Property.stats * (string list, int) Util.either  -> unit
+  type output_style = Proof.context -> string -> Timing.timing ->
+    Property.stats * (string list, int) Util.either  -> unit
   val register_style : string -> output_style -> theory -> theory
-  val get_style : Proof.context -> string -> Timing.timing -> Property.stats * (string list, int) Util.either -> unit
+  val get_style : Proof.context -> string -> Timing.timing ->
+    Property.stats * (string list, int) Util.either -> unit
 end
 
 structure Output_Style : OUTPUT_STYLE =
@@ -18,7 +20,8 @@ struct
 open Util
 open Configuration
 
-type output_style = Proof.context -> string -> Timing.timing -> Property.stats * (string list, int) either -> unit
+type output_style = Proof.context -> string -> Timing.timing ->
+  Property.stats * (string list, int) either -> unit
 
 structure Style = Theory_Data
 (

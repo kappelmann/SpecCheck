@@ -1,14 +1,14 @@
 (*  Title:      Tools/Spec_Check/base_types.ML
     Author:     Kevin Kappelmann
 
-Shared type definitions for SpecCheck. 
+Shared type definitions for SpecCheck generators. 
 *)
 
 signature GEN_TYPES =
 sig
   (* 'a gen consumes a random seed and returns an unused one along with a generated 'a value *)
   type 'a gen = Random.rand -> 'a * Random.rand
-  
+
   (* ('a,'b) genS, when compared to `gen`, also consumes a state and returns a modified state.
   TODO Sebastian: Currently almost no usage.
   Theoretically useful for functions that accept stateful gens.

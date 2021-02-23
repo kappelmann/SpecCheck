@@ -8,19 +8,17 @@ Custom-made output styles for SpecCheck.
 structure Output_Style_Custom : OUTPUT_STYLE =
 struct
 
-open Configuration
-
 val identifier = "Custom"
 
-fun style ctxt name total_time (stats, badobjs) =
+fun style ctxt name total_time (stats, counterexamples) =
   let
-    val (badobjs',count_badobjs) = case badobjs of
+    val (showable_counterexamples, count_counterexamples) = case counterexamples of
         Util.Left xs => (xs, length xs)
       | Util.Right size => ([], size)
-    val target = Config.get ctxt gen_target
-    val sort_examples = Config.get ctxt sort_examples
-    val show_stats = Config.get ctxt show_stats
-    val limit = Config.get ctxt examples
+    val max_success = Config.get ctxt Configuration.max_success
+    val sort_counterexamples = Config.get ctxt Configuration.sort_counterexamples
+    val show_stats = Config.get ctxt Configuration.show_stats
+    val num_counterexamples = Config.get ctxt Configuration.num_counterexamples
   
     val resultw = 8
     val countw = 20
@@ -28,9 +26,9 @@ fun style ctxt name total_time (stats, badobjs) =
   
     fun result {count = 0, ...} = "No Test"
       | result {count, generated, ...} =
-          if count_badobjs <> 0
+          if count_counterexamples <> 0
           then "Failed"
-          else if generated andalso count < target
+          else if generated andalso count < max_success
           then "Bad Gen"
           else "Passed"
   
@@ -46,31 +44,31 @@ fun style ctxt name total_time (stats, badobjs) =
   
     val result =
       let val more_stats = if not show_stats then "" else
-            StringCvt.padRight #" " countw (ratio (#count stats, count_badobjs)) ^
+            StringCvt.padRight #" " countw (ratio (#count stats, count_counterexamples)) ^
             StringCvt.padRight #" " timew (time (#timing stats))
       in
       StringCvt.padRight #" " resultw (result stats) ^ more_stats ^ name
       end
   
-    fun print_counter badobjs =
+    fun print_counter counterexamples =
       let
-        val maybe_sort = if sort_examples then sort (int_ord o apply2 size) else I
-        val badobjs =
-          badobjs
-          |> take limit
+        val maybe_sort = if sort_counterexamples then sort (int_ord o apply2 size) else I
+        val counterexamples =
+          counterexamples
+          |> take num_counterexamples
           |> maybe_sort
       in
-        case badobjs of
-            [] => (warning "No counterexample. No random generator used?")
+        case counterexamples of
+            [] => (warning "No counterexample to show; config spec_check_num_counterexamples \<le> 0")
           | [e] => (warning ("Counterexample:"); warning e)
           | es => (warning "Counterexamples:"; fold (fn x => fn _ => warning x) es ())
       end
   in
-    if count_badobjs = 0
+    if count_counterexamples = 0
     then writeln result
-    else if null badobjs'
+    else if null showable_counterexamples
     then warning result
-    else (warning result; print_counter badobjs')
+    else (warning result; print_counter showable_counterexamples)
   end
 
 end

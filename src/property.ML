@@ -26,7 +26,7 @@ sig
   type stats = { count : int, generated : bool, timing : Timing.timing }
   (* runs a property for a given test case and returns the result and the updated the statistics *)
   val test : 'a prop -> 'a * stats -> result * stats
-  (* TODO Sebastian: what's the generated flag in stats? *)
+  (* returns an empty stats object for generated or fixed tests *)
   val empty_stats : bool -> stats
 
 end
@@ -38,9 +38,15 @@ datatype result = Result of bool | Discard | Exception of exn
 
 type stats = { count : int, generated : bool, timing : Timing.timing }
 
-fun empty_stats gen =
-  { count = 0, generated = gen,
-    timing = {cpu = Time.zeroTime, elapsed = Time.zeroTime, gc = Time.zeroTime} }
+fun empty_stats gen = {
+    count = 0,
+    generated = gen,
+    timing = {
+      cpu = Time.zeroTime,
+      elapsed = Time.zeroTime,
+      gc = Time.zeroTime
+    }
+  }
 
 type 'a pred = 'a -> bool
 type 'a prop = 'a -> result

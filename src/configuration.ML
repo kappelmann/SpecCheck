@@ -1,14 +1,14 @@
 signature CONFIGURATION =
 sig
 
-  (* Number of generated inputs for test *)
-  val gen_target : int Config.T
+  (* Maximum number of successful tests before succeeding *)
+  val max_success : int Config.T
   (* Maximum number of discarded tests per successful test before giving up *)
   val max_discard_ratio : int Config.T
   (* Number of counterexamples shown *)
-  val examples : int Config.T
-  (* Sort counter examples by size *)
-  val sort_examples : bool Config.T
+  val num_counterexamples : int Config.T
+  (* Sort counterexamples by size *)
+  val sort_counterexamples : bool Config.T
   (* Print timing etc. depending on style *)
   val show_stats : bool Config.T
   val column_width : int Config.T
@@ -19,13 +19,14 @@ end
 structure Configuration : CONFIGURATION =
 struct
 
-val gen_target = Attrib.setup_config_int \<^binding>\<open>spec_check_gen_target\<close> (K 100)
+val max_success = Attrib.setup_config_int \<^binding>\<open>spec_check_max_success\<close> (K 100)
 
 val max_discard_ratio = Attrib.setup_config_int \<^binding>\<open>spec_check_max_discard_ratio\<close> (K 10)
 
-val examples = Attrib.setup_config_int \<^binding>\<open>spec_check_examples\<close> (K 5)
+val num_counterexamples = Attrib.setup_config_int \<^binding>\<open>spec_check_num_counterexamples\<close> (K 1)
 
-val sort_examples = Attrib.setup_config_bool \<^binding>\<open>spec_check_sort_examples\<close> (K true)
+val sort_counterexamples =
+  Attrib.setup_config_bool \<^binding>\<open>spec_check_sort_counterexamples\<close> (K true)
 
 val show_stats = Attrib.setup_config_bool \<^binding>\<open>spec_check_show_stats\<close> (K true)
 

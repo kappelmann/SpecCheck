@@ -19,14 +19,14 @@ fun style ctxt name timing ({count, ...} : Property.stats, badobjs) =
         Util.Left xs => (xs, length xs)
       | Util.Right size => ([], size)
     fun pad wd = StringCvt.padLeft #"0" wd o Int.toString
-    val gen_target = Config.get ctxt gen_target
+    val max_success = Config.get ctxt max_success
     val _ = writeln ("[testing " ^ name ^ "... ")
   in
   case (count, count_badobjs) of
     (0, 0) => warning ("no valid cases generated]")
   | (n, 0) => writeln (
-        if n >= gen_target then "ok]"
-        else "ok on " ^ string_of_int n ^ "; " ^ string_of_int gen_target ^ " required]")
+        if n >= max_success then "ok]"
+        else "ok on " ^ string_of_int n ^ "; " ^ string_of_int max_success ^ " required]")
   | (_, m) =>
       let
         val wd = size (string_of_int (length badobjs'))

@@ -155,10 +155,9 @@ fun compose_printer _ Var = "Int.toString"
       in "fn (" ^ tuple_head (length t) ^ ") => \"(\" ^ " ^ tuple_body t ^ " ^ \")\"" end;
 
 (*produce compilable string*)
-fun build_check ctxt name (ty, spec) =
-  "Spec_Check.check_gen (Context.the_local_context ()) \"" ^ name ^ "\" ("
-  ^ compose_generator ctxt ty ^ ") (SOME (" ^ compose_printer ctxt ty
-  ^ "))(Property.property (" ^ spec ^ ")) (Random.new ());"
+fun build_check ctxt name (ty, spec) = "Spec_Check.check (" ^ compose_printer ctxt ty
+  ^ ") (" ^ compose_generator ctxt ty ^ ")  \"" ^ name
+  ^ "\" (Property.property (" ^ spec ^ ")) (Context.the_local_context ()) (Random.new ());"
 
 (*produce compilable string - non-eqtype functions*)
 (*

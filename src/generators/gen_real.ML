@@ -1,4 +1,4 @@
-(*  Title:      Tools/Spec_Check/generator.ML
+(*  Title:      Tools/Spec_Check/generators/generator.ML
     Author:     Lukas Bulwahn and Nicolai Schaffroth, TU Muenchen
     Author:     Christopher League
 

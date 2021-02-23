@@ -1,4 +1,4 @@
-(* Structure containing all generator functions. *)
+(* Structure containing all generators. *)
 structure Generator =
 struct
 open Gen_Types
