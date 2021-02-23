@@ -6,27 +6,29 @@ Shared type definitions for SpecCheck generators.
 
 signature GEN_TYPES =
 sig
-  (* 'a gen consumes a random seed and returns an unused one along with a generated 'a value *)
-  type 'a gen = Random.rand -> 'a * Random.rand
 
-  (* ('a,'b) genS, when compared to `gen`, also consumes a state and returns a modified state.
-  TODO Sebastian: Currently almost no usage.
-  Theoretically useful for functions that accept stateful gens.
-  More lightweight than sequences from Seq. *)
-  type ('a, 's) genS = ('s * Random.rand) -> 'a * ('s * Random.rand)
-  
-  (* a cogenerator produces new generators depending on an input element and an existing generator.  *)
-  type ('a, 'b) cogen = 'a -> 'b gen -> 'b gen
+  (* consumes a state and returns a new state along with a generated value *)
+  type ('a, 's) gen_state = 's -> 'a * 's
+  (* 'a gen consumes a random seed and returns an unused one along with a generated 'a value *)
+  type 'a gen = ('a, Random.rand) gen_state
+
+  (* a cogenerator produces new generators depending on an input element and an existing generator. *)
+  type ('a, 'b, 's) cogen_state = 'a -> ('b, 's) gen_state -> ('b, 's) gen_state
+
+  (* a cogenerator produces new generators depending on an input element and an existing generator. *)
+  type ('a, 'b) cogen = ('a, 'b, Random.rand) cogen_state
 
 end
 
 structure Gen_Types : GEN_TYPES =
 struct
 
-type 'a gen = Random.rand -> 'a * Random.rand
+type ('a, 's) gen_state = 's -> 'a * 's
 
-type ('a,'b) genS = ('b * Random.rand) -> 'a * ('b * Random.rand)
+type 'a gen = ('a, Random.rand) gen_state
 
-type ('a, 'b) cogen = 'a -> 'b gen -> 'b gen
+type ('a, 'b, 's) cogen_state = 'a -> ('b, 's) gen_state -> ('b, 's) gen_state
+
+type ('a, 'b) cogen = ('a, 'b, Random.rand) cogen_state
 
 end

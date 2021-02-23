@@ -90,8 +90,8 @@ fun string_of_bool b = if b then "true" else "false"
 
 fun string_of_ref f r = f (!r) ^ " ref";
 
-val initial_content = Symtab.make
-  [("bool", ("Generator.bernoulli 0.5", "Gen_Construction.string_of_bool")),
+val initial_content = Symtab.make [
+  ("bool", ("Generator.bernoulli 0.5", "Gen_Construction.string_of_bool")),
   ("option", ("Generator.option (Generator.bernoulli (2.0 / 3.0))", "ML_Syntax.print_option")),
   ("list", ("Generator.unfold_while (K (Generator.bernoulli (2.0 / 3.0)))", "ML_Syntax.print_list")),
   ("unit", ("gen_unit", "fn () => \"()\"")),
@@ -101,8 +101,9 @@ val initial_content = Symtab.make
   ("string", ("Generator.string (Random.range (0, 100)) Generator.char", "ML_Syntax.print_string")),
   ("->", ("Generator.function' o snd", "fn (_, _) => fn _ => \"fn\"")),
   ("typ", ("Generator.typ 10", "ML_Syntax.print_typ")),
-  ("term", ("Generator.term_det (fn h => fn i => fn r => let val (s,r) = Generator.def_sym_gen (1,1,1) 20 (4-h) r in (s,4-h,r) end)",
-          "ML_Syntax.print_term"))]
+  ("term", ("Generator.term_det (fn h => fn (i, r) => "
+            ^ "let val (s,r) = Generator.def_sym_gen (1,1,1) 20 (4-h) r in (s,(4-h,r)) end)",
+            "ML_Syntax.print_term"))]
 
 structure Data = Theory_Data
 (

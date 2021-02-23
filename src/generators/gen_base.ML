@@ -8,77 +8,80 @@ Basic utility functions to create and combine generators.
 signature GEN_BASE =
 sig
   include GEN_TYPES
-  
+
   (* generator that always returns the passed value *)
-  val lift : 'a -> 'a gen
-  
-  val zip : 'a gen -> 'b gen -> ('a * 'b) gen
-  val zip3 : 'a gen -> 'b gen -> 'c gen -> ('a * 'b * 'c) gen
-  val zip4 : 'a gen -> 'b gen -> 'c gen -> 'd gen -> ('a * 'b * 'c * 'd) gen
-  val map : ('a -> 'b) -> 'a gen -> 'b gen
-  val map2 : ('a -> 'b -> 'c) -> 'a gen -> 'b gen -> 'c gen
-  val map3 : ('a -> 'b -> 'c -> 'd) -> 'a gen -> 'b gen -> 'c gen -> 'd gen
-  val map4 : ('a -> 'b -> 'c -> 'd -> 'e) -> 'a gen -> 'b gen -> 'c gen -> 'd gen -> 'e gen
-  
+  val lift : 'a -> ('a, 's) gen_state
+
+  val zip : ('a, 's) gen_state -> ('b, 's) gen_state -> ('a * 'b, 's) gen_state
+  val zip3 : ('a, 's) gen_state -> ('b, 's) gen_state -> ('c, 's) gen_state ->
+    ('a * 'b * 'c, 's) gen_state
+  val zip4 : ('a, 's) gen_state -> ('b, 's) gen_state -> ('c, 's) gen_state -> ('d, 's) gen_state ->
+    ('a * 'b * 'c * 'd, 's) gen_state
+  val map : ('a -> 'b) -> ('a, 's) gen_state -> ('b, 's) gen_state
+  val map2 : ('a -> 'b -> 'c) -> ('a, 's) gen_state -> ('b, 's) gen_state -> ('c, 's) gen_state
+  val map3 : ('a -> 'b -> 'c -> 'd) -> ('a, 's) gen_state -> ('b, 's) gen_state ->
+    ('c, 's) gen_state -> ('d, 's) gen_state
+  val map4 : ('a -> 'b -> 'c -> 'd -> 'e) -> ('a, 's) gen_state -> ('b, 's) gen_state ->
+    ('c, 's) gen_state -> ('d, 's) gen_state -> ('e, 's) gen_state
+
   (* ensures that all generated values fulfill the predicate; loops if the predicate is never
   satisfied by the generated values. *)
-  val filter : ('a -> bool) -> 'a gen -> 'a gen
-  
+  val filter : ('a -> bool) -> ('a, 's) gen_state -> ('a, 's) gen_state
+
   (* bernoulli random variable with parameter p \<in> [0,1] *)
   val bernoulli : real -> bool gen
-  
+
   (* random variable following a binomial distribution with parameters p \<in> [0,1] and n \\<ge> 0 *)
   val binom_dist : real -> int -> int gen
-  
+
   (* range_real (x,y) r returns a value in [x;y] *)
   val range_real : real * real -> real gen
 
   (* range_int (x,y) r returns a value in [x;y] *)
   val range_int : int * int -> int gen
-  
+
   (* randomly generates one of the given values *)
   val elements : 'a vector -> 'a gen
   (* randomly uses one of the given generators *)
   val one_of : 'a gen vector -> 'a gen
-  
+
   (* randomly generates one of the given values *)
   val elementsL : 'a list -> 'a gen
   (* randomly uses one of the given generators *)
   val one_ofL : 'a gen list -> 'a gen
-  
+
   (* chooses one of the given generators with a weighted random distribution. *)
   val one_ofW : (int * 'a gen) vector -> 'a gen
   (* chooses one of the given values with a weighted random distribution. *)
   val elementsW : (int * 'a) vector -> 'a gen
-  
+
   (* chooses one of the given generators with a weighted random distribution. *)
   val one_ofWL : (int * 'a gen) list -> 'a gen
   (* chooses one of the given values with a weighted random distribution. *)
   val elementsWL : (int * 'a) list -> 'a gen
-  
+
   (* creates a vector of length as returned by the passed int generator *)
-  val vector : int gen -> 'a gen -> 'a vector gen
-  
+  val vector : (int, 's) gen_state -> ('a, 's) gen_state -> ('a vector, 's) gen_state
+
   (* creates a list of length as returned by the passed int generator *)
-  val list : int gen -> 'a gen -> 'a list gen
+  val list : (int, 's) gen_state -> ('a, 's) gen_state -> ('a list, 's) gen_state
+
   (* generates elements until the passed (generator) predicate fails;
   returns a list of all values that satisfied the predicate *)
-  val unfold_while : ('a -> bool gen) -> 'a gen -> 'a list gen
+  val unfold_while : ('a -> (bool, 's) gen_state) -> ('a, 's) gen_state -> ('a list, 's) gen_state
   (* generates a random permutation of the given list *)
   val shuffle : 'a list -> 'a list gen
-  
+
   (* generates SOME value if passed bool generator returns true and NONE otherwise *)
-  val option : bool gen -> 'a gen -> 'a option gen
-  
+  val option : (bool, 's) gen_state -> ('a, 's) gen_state -> ('a option, 's) gen_state
+
   (* Creates a sequence of values using the passed generator, which depend on the current index
-  of the sequence.
-  TODO Sebastian: what do you mean by the following line?
-  Can be used for stateful generators but the performance suffers when compared to the genS type. *)
+  of the sequence. *)
   val seq : (int -> 'a option gen) -> 'a Seq.seq gen
-  
-  val unit : unit gen
-  val ref_gen : 'a gen -> 'a Unsynchronized.ref gen
-  
+
+  val unit : (unit, 's) gen_state
+  val ref_gen : ('a, 's) gen_state -> ('a Unsynchronized.ref, 's) gen_state
+
   (* `variant i g` creates the `i`th variant of a given generator. It raises an error if `i` is negative. *)
   val variant : (int, 'b) cogen
   val cobool : (bool, 'b) cogen
@@ -92,7 +95,7 @@ struct
 
 open Gen_Types
 
-fun lift obj r = (obj, r)
+val lift = pair
 
 fun zip g1 g2 =
   g1 #-> (fn x1 => g2 #-> (fn x2 => pair (x1, x2)))
@@ -131,7 +134,7 @@ fun range_int (min, max) r =
   if min > max
   then Runtime.exn_trace (raise Fail ("Range_Int: " ^ @{make_string} min ^ " > " ^ @{make_string} max))
   else Random.real r |>> (fn s => Int.min (min + Real.floor (s * Real.fromInt (max - min + 1)), max))
-    
+
 fun one_of v r =
   let val (i, r) = range_int (0, Vector.length v - 1) r
   in Vector.sub (v, i) r end
@@ -199,7 +202,7 @@ fun seq gen_of_idx r =
     | (SOME v, r) => SOME (v, Seq.make (gen_next (idx + 1) r))
   in (Seq.make (gen_next 0 r1), r2) end
 
-val unit = lift ()
+fun unit s = lift () s
 
 fun ref_gen gen r = let val (value, r) = gen r
   in (Unsynchronized.ref value, r) end

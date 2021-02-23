@@ -18,8 +18,9 @@ signature GEN_TERM = sig
   The weights specify the ratio of symbols (Free, Var, Const) in relation to each other in the term. *)
   val def_sym_gen : (int * int * int) -> int -> int -> term Gen_Types.gen
   (* "def_sym_genS weights reuse_prob num_args" is a stateful variant that reuses previously generated
-   symbols according to reuse_prob. To do so it uses a state => type is genS.*)
-  val def_sym_genS : int * int * int -> real -> int -> (term, (int list * int list * int list)) Gen_Types.genS
+   symbols according to reuse_prob. To do so it uses a state. *)
+  val def_sym_genS : int * int * int -> real -> int ->
+    (term, ((int list * int list * int list) * Random.rand)) Gen_Types.gen_state
 
   (* Term generators *)
 
@@ -41,7 +42,8 @@ signature GEN_TERM = sig
   num_args specifies how many arguments are required for the symbol. 0 to terminate this subtree
   new_state is passed according to the traversal above
   *)
-  val term_det : (int -> int -> 'a -> term * int * 'a) -> 'a -> term * 'a
+  val term_det : (int -> (term, int * 's) Gen_Types.gen_state) ->
+    (term, 's) Gen_Types.gen_state
 
   (* See above. f now takes a (Symbol * index_of_arg) list which specifies the path from the root to
   the current node *)
@@ -194,24 +196,23 @@ fun term_fol freq avg_args num_sym r =
   term_fol_structure avg_args num_sym r
   |-> term_fol_map freq
 
-fun term_det f init_acc =
-  let fun aux indices height state =
+fun term_det gen state =
+  let fun build_tree indices height state =
     let
-      (* indices stores the number of symbols so far at each height *)
+      (* indices stores the number of nodes visited so far at each height *)
       val indices = incr_nth indices height
       val index = nth indices height
-      val (sym, num_args, state) = f height index state
-      fun fold_aux (acc, indices, state) =
-        aux indices (height + 1) state
-        |> (fn (x,y,z) => (x :: acc,y,z))
-      val (args,indices,acc) =
-        fold (K fold_aux) (1 upto num_args) ([],indices,state)
-    in
-    (fold (fn x => fn y => y $ x) (rev args) sym, indices, acc)
-    end
+      (* generate the symbol for the current node *)
+      val (sym, (num_args, state)) = gen height (index, state)
+      fun fold_arg (children, indices, state) =
+        build_tree indices (height + 1) state
+        |> (fn (child, indices, state) => (child :: children, indices, state))
+      (* generate the subtrees for each argument *)
+      val (children, indices, state) = fold (K fold_arg) (1 upto num_args) ([] ,indices, state)
+    in (fold (fn x => fn y => y $ x) (rev children) sym, indices, state) end
   in
-  aux [] 0 init_acc
-  |> (fn (x,_,acc) => (x,acc))
+    build_tree [] 0 state
+    |> (fn (x, _, state) => (x, state))
   end
 
 fun term_det_path f init_acc =
@@ -227,8 +228,8 @@ fun term_det_path f init_acc =
     (fold (fn x => fn y => y $ x) (rev args) sym, acc)
     end
   in
-  aux [] init_acc
-  |> fst
+    aux [] init_acc
+    |> fst
   end
 
 end
