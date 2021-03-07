@@ -7,7 +7,6 @@ imports
 begin
 
 ML_file \<open>spec_check.ML\<close>
-ML_file \<open>construct_gen.ML\<close>
-ML_file \<open>spec_check_comp.ML\<close>
+ML_file \<open>lecker.ML\<close>
 
 end

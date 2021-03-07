@@ -14,17 +14,17 @@ This file only contains those functions that rely on the internal integer repres
 signature RANDOM =
 sig
   type rand
-  (* creates a new random seed *)
+  (*creates a new random seed*)
   val new : unit -> rand
-  (* creates a new random seed from a given one *)
+  (*creates a new random seed from a given one*)
   val next : rand -> rand
-  (* Use this function for reproducible randomness; inputs \<le> 0 are mapped to 1 *)
+  (*use this function for reproducible randomness; inputs \<le> 0 are mapped to 1*)
   val deterministic_seed : int -> rand
-  
-  (* returns a real in [0;1]; theoretically, with 2^31-2 equidistant discrete values *)
+
+  (*returns a real in [0;1]; theoretically, with 2^31-2 equidistant discrete values*)
   val real : rand -> real * rand
-  
-  (* splits a seed into two new independent seeds *)
+
+  (*splits a seed into two new independent seeds*)
   val split : rand -> rand * rand
 end
 
@@ -38,19 +38,19 @@ val m = 2147483647 (* 2^31 - 1 *)
 
 fun next seed = (seed * a) mod m
 
-(* TODO: Time is not sufficiently random when polled rapidly! *)
+(*TODO: Time is not sufficiently random when polled rapidly!*)
 fun new () =
   Time.now ()
   |> Time.toMicroseconds
-  |> (fn x => Int.max (1, x mod m)) (* The seed must be within [1;m) *)
+  |> (fn x => Int.max (1, x mod m)) (*The seed must be within [1;m)*)
   |> next
 
 fun deterministic_seed r = Int.max (1, r mod m)
 
 fun real r = ((Real.fromInt (r - 1)) / (Real.fromInt (m - 2)), next r)
 
-(* TODO: In theory, the current implementation could return two seeds directly adjacent in the
-sequence of the pseudorandom number generator. Practically, however, it should be good enough. *)
+(*TODO: In theory, the current implementation could return two seeds directly adjacent in the
+sequence of the pseudorandom number generator. Practically, however, it should be good enough.*)
 fun split r =
   let
     val r0 = next r

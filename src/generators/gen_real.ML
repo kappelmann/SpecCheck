@@ -1,4 +1,4 @@
-(*  Title:      Tools/Spec_Check/generators/generator.ML
+(*  Title:      Tools/Spec_Check/generators/gen_real.ML
     Author:     Lukas Bulwahn and Nicolai Schaffroth, TU Muenchen
     Author:     Christopher League
 
@@ -8,13 +8,13 @@ Random generators for reals.
 signature GEN_REAL = sig
 
   val real : real Gen_Types.gen
-  
+
   val real_pos : real Gen_Types.gen
   val real_neg : real Gen_Types.gen
-  
+
   val real_nonneg : real Gen_Types.gen
   val real_nonpos : real Gen_Types.gen
-  
+
   val real_finite : real Gen_Types.gen
 end
 

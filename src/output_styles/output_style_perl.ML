@@ -1,4 +1,4 @@
-(*  Title:      Tools/Spec_Check/output_style.ML
+(*  Title:      Tools/Spec_Check/output_styles/output_style_perl.ML
     Author:     Lukas Bulwahn and Nicolai Schaffroth, TU Muenchen
     Author:     Christopher League
 
@@ -9,51 +9,46 @@ structure Output_Style_Perl : OUTPUT_STYLE =
 struct
 
 open Configuration
+open Spec_Check_Base
 
-val identifier = "Perl"
-
-fun style ctxt name timing (stats, badobjs) =
+fun style show_opt ctxt name timing result =
   let
-    val (badobjs',count_badobjs) = case badobjs of
-        Util.Left xs => (xs, length xs)
-      | Util.Right size => ([], size)
-    val max_success = Config.get ctxt max_success
-    val namew = Config.get ctxt column_width
-    val sort_counterexamples = Config.get ctxt sort_counterexamples
-    val show_stats = Config.get ctxt show_stats
-    val num_counterexamples = Config.get ctxt num_counterexamples
-
-    val resultw = 8
-    val countw = 20
-    val allw = namew + resultw + countw + 2
-
+    val sort_counterexamples =  Config.get ctxt sort_counterexamples
     val maybe_sort = if sort_counterexamples then sort (int_ord o apply2 size) else I
 
-    fun result {count = 0, ...} = "dubious"
-      | result {count, generated, ...} =
-          if count_badobjs <> 0 then "FAILED"
-          else if generated andalso count < max_success then "dubious"
-          else "ok"
+    val stats = stats_of_result result
+    val num_failed_tests = #num_failed_tests stats
 
-    fun ratio (0, _) = "(0/0 passed)"
-      | ratio (count, 0) = "(" ^ string_of_int count ^ " passed)"
-      | ratio (count, n) =
-          "(" ^ string_of_int (count - n) ^ "/" ^ string_of_int count ^  " passed)"
+    fun code (Success _) = "ok"
+      | code (Gave_Up _) = "Gave up!"
+      | code (Failure _) = "FAILED"
 
-    val update =
-      "\r" ^ StringCvt.padRight #"." namew name ^ "." ^
-      StringCvt.padRight #" " resultw (result stats) ^
-      StringCvt.padRight #" " countw (ratio (#count stats, count_badobjs))
+    fun ratio stats =
+      let
+        val num_success_tests = #num_success_tests stats
+      in
+        if num_failed_tests = 0
+        then implode ["(", string_of_int num_success_tests, " passed)"]
+        else implode ["(", string_of_int num_success_tests, "/",
+          string_of_int (num_success_tests + num_failed_tests),  " passed)"]
+      end
 
-    fun err badobjs =
-      case maybe_sort (take num_counterexamples badobjs) of
-          [] => ()
-        | es => (warning "Counterexamples:"; fold (fn x => fn _ => warning x) es ())
+    val result_string = name ^ ".\n" ^ code result ^ " " ^ ratio stats
+
+    fun show_counterexamples counterexamples =
+      case show_opt of
+        SOME show =>
+          (case maybe_sort (map (Pretty.string_of o show) counterexamples) of
+            [] => ()
+          | es => (Util.pwarning "Counterexamples:"; fold (fn x => fn _ => Util.pwarning x) es ()))
+      | NONE => ()
 
   in
-    if count_badobjs = 0
-    then writeln update
-    else (warning update; err badobjs')
+    case result of
+      Success _ => Util.pwriteln result_string
+    | Gave_Up _ => Util.pwarning result_string
+    | Failure (_, failure_data) =>
+        (Util.pwarning result_string; show_counterexamples (#counterexamples failure_data))
   end
 
 end

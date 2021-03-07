@@ -6,12 +6,12 @@ Shared type definitions for SpecCheck showable types.
 
 signature SHOW_TYPES =
 sig
-  type 'a show = 'a -> string
+  type 'a show = 'a -> Pretty.T
 end
 
 structure Show_Types : SHOW_TYPES =
 struct
 
-type 'a show = 'a -> string
+type 'a show = 'a -> Pretty.T
 
 end

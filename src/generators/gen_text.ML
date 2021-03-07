@@ -9,18 +9,21 @@ signature GEN_TEXT = sig
 
   val range_char : char * char -> char Gen_Types.gen
   val char : char Gen_Types.gen
-  
+
   val char_of : string -> char Gen_Types.gen
-  
+
   val string : int Gen_Types.gen -> char Gen_Types.gen -> string Gen_Types.gen
-  
+
   val substring : string Gen_Types.gen -> substring Gen_Types.gen
-  
+
   val cochar : (char, 'b) Gen_Types.cogen
   val costring : (string, 'b) Gen_Types.cogen
   val cosubstring : (substring, 'b) Gen_Types.cogen
-  
+
   val digit : char Gen_Types.gen
+  val lowercase_letter : char Gen_Types.gen
+  val uppercase_letter : char Gen_Types.gen
+  val letter : char Gen_Types.gen
 end
 
 structure Gen_Text : GEN_TEXT =
@@ -58,5 +61,9 @@ fun cosubstring s = colist cochar (Substring.explode s)
 fun costring s = cosubstring (Substring.full s)
 
 val digit = range_char (#"0", #"9")
+
+val lowercase_letter = range_char (#"a", #"z")
+val uppercase_letter = range_char (#"A", #"Z")
+val letter = one_ofL [lowercase_letter, uppercase_letter]
 
 end

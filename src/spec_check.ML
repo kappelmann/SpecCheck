@@ -1,113 +1,153 @@
 (*  Title:      Tools/Spec_Check/spec_check.ML
-    Author:     Lukas Bulwahn and Nicolai Schaffroth, TU Muenchen
+    Author:     Lukas Bulwahn, Nicolai Schaffroth, and Kevin Kappelmann TU Muenchen
     Author:     Christopher League
 
-Specification-based testing of ML programs with random values.
-
-TODO: generator based tests probably should return a new seed?
+Specification-based testing of ML programs.
 *)
 
 signature SPEC_CHECK =
 sig
 
-  val check_base : 'a Generator.gen -> string -> 'a Property.prop -> Proof.context ->
-    Random.rand -> unit
-  val check : 'a Show.show -> 'a Generator.gen -> string -> 'a Property.prop -> Proof.context ->
-    Random.rand -> unit
-  val check_shrink : 'a Show.show -> 'a Shrink.shrink -> 'a Generator.gen -> string ->
-    'a Property.prop -> Proof.context -> Random.rand -> unit
+  (*tries to shrink a given (failing) input to a smaller, failing input*)
+  val try_shrink : 'a Property.prop -> 'a Shrink.shrink -> 'a -> 'a
 
-  val check_seq_base : 'a Seq.seq -> string -> 'a Property.prop -> Proof.context -> unit
-  val check_seq : 'a Show.show -> 'a Seq.seq -> string -> 'a Property.prop -> Proof.context -> unit
+  (*runs a property for a given test case and returns the result and the updated the statistics*)
+  val run_a_test : 'a Property.prop -> 'a -> Spec_Check_Base.stats ->
+    Spec_Check_Base.result_single * Spec_Check_Base.stats
 
-  val check_list_base : 'a list -> string -> 'a Property.prop -> Proof.context -> unit
-  val check_list : 'a Show.show -> 'a list -> string -> 'a Property.prop -> Proof.context -> unit
-  
+  (*returns the new state after executing the test*)
+  val check_style : 'a Output_Style.output_style -> ('a Show.show) option ->  'a Shrink.shrink ->
+    ('a, 's) Generator.gen_state -> string -> 'a Property.prop -> Proof.context -> 's -> 's
+  val check_shrink : 'a Show.show -> 'a Shrink.shrink -> ('a, 's) Generator.gen_state -> string ->
+    'a Property.prop -> Proof.context -> 's -> 's
+  val check : 'a Show.show -> ('a, 's) Generator.gen_state -> string -> 'a Property.prop ->
+    Proof.context -> 's -> 's
+  val check_base : ('a, 's) Generator.gen_state -> string -> 'a Property.prop -> Proof.context ->
+    's -> 's
+
+  (*returns all unprocessed elements of the sequence*)
+  val check_seq_style : 'a Output_Style.output_style -> ('a Show.show) option -> 'a Seq.seq ->
+    string -> 'a Property.prop -> Proof.context -> 'a Seq.seq
+  val check_seq : 'a Show.show -> 'a Seq.seq -> string -> 'a Property.prop -> Proof.context ->
+    'a Seq.seq
+  val check_seq_base : 'a Seq.seq -> string -> 'a Property.prop -> Proof.context -> 'a Seq.seq
+
+  (*returns all unused elements of the list*)
+  val check_list_style : 'a Output_Style.output_style -> ('a Show.show) option -> 'a list ->
+    string -> 'a Property.prop -> Proof.context -> 'a Seq.seq
+  val check_list : 'a Show.show -> 'a list -> string -> 'a Property.prop -> Proof.context ->
+    'a Seq.seq
+  val check_list_base : 'a list -> string -> 'a Property.prop -> Proof.context -> 'a Seq.seq
+
 end
 
 structure Spec_Check : SPEC_CHECK =
 struct
 
-open Property
+open Spec_Check_Base
+
+fun run_a_test prop input
+  {num_success_tests, num_failed_tests, num_discarded_tests, num_recently_discarded_tests, timing} =
+  let
+    val (time, result) = Timing.timing (fn () => prop input) ()
+    val is_success = case result of Result is_success => is_success | _ => false
+    val is_discard = case result of Discard => true | _ => false
+    val is_failure = not is_discard andalso not is_success
+
+    val num_success_tests = num_success_tests + (if is_success then 1 else 0)
+    val num_failed_tests = num_failed_tests + (if is_failure then 1 else 0)
+    val num_discarded_tests = num_discarded_tests + (if is_discard then 1 else 0)
+    val num_recently_discarded_tests = if is_discard then num_recently_discarded_tests + 1 else 0
+    val timing = add_timing timing time
+
+    val stats = {
+        num_success_tests = num_success_tests,
+        num_failed_tests = num_failed_tests,
+        num_discarded_tests = num_discarded_tests,
+        num_recently_discarded_tests = num_recently_discarded_tests,
+        timing = timing
+      }
+  in (result, stats) end
 
 fun try_shrink prop shrink input =
   let
-    fun is_failure input = case Property.test prop (input, empty_stats true) |> fst of
-        Result true => false
+    fun is_failure input =case run_a_test prop input empty_stats |> fst of
+        Result is_success => not is_success
       | Discard => false
-      | Result false => true
-      | Exception exn =>
-          (warning "Exception raised during test:"; Runtime.exn_trace (fn () => raise exn))
+      | Exception exn => (Util.pwarning "Exception raised during shrinking:"; Exn.reraise exn)
   in
-    (* Always try the first successful branch and abort without backtracking once no further shrink is possible. *)
+    (*always try the first successful branch and abort without backtracking once no further
+      shrink is possible.*)
     case find_first is_failure (shrink input) of
-      (* recursively shrink *)
+      (*recursively shrink*)
       SOME input => try_shrink prop shrink input
     | NONE => input
   end
 
-fun run init_stats opt_show shrink seq name prop ctxt =
+fun test output_style init_stats show_opt shrink opt_gen name prop ctxt state =
   let
-    fun apply_show xs = case opt_show of
-        SOME show => Util.Left (map show xs)
-      | NONE => Util.Right (length xs)
-    val print_result = Output_Style.get_style ctxt name
+    val max_discard_ratio = Config.get ctxt Configuration.max_discard_ratio
     val max_success = Config.get ctxt Configuration.max_success
-    (* number of counterexamples to generate before stopping the test *)
+    (*number of counterexamples to generate before stopping the test*)
     val num_counterexamples =
       let val conf_num_counterexamples = Config.get ctxt Configuration.num_counterexamples
       in if conf_num_counterexamples > 0 then conf_num_counterexamples else ~1 end
-    
-    exception EarlyReturn of Property.stats * ('a list * int)
-    fun run_test input (stats, state_counterexamples) =
-      (* stop the test run if enough successful tests were run or counterexamples were found *)
-      if #count stats >= max_success orelse snd state_counterexamples = num_counterexamples
-      then raise EarlyReturn (stats, state_counterexamples)
-      else
-      (* Test input and attempt to shrink on failure *)
-        let
-          val (result, stats) = Property.test prop (input, stats)
-          val new_counterexamples_state = case result of
-              Result true => state_counterexamples
-            | Discard => state_counterexamples
-            | Result false =>
-                state_counterexamples
-                |>> (fn counterexamples => try_shrink prop shrink input :: counterexamples)
-                ||> (curry (op +) 1)
-            | Exception exn => (warning ("Exception raised during test: " ^ name);
-                  warning (@{make_string} exn);
-                  raise EarlyReturn (stats, state_counterexamples |>> (fn cs => input :: cs)))
-        in (stats, new_counterexamples_state) end
+
+    fun run_tests opt_gen state stats counterexamples =
+      (*stop the test run if enough (successful) tests were run or counterexamples were found*)
+      if #num_success_tests stats >= max_success then (Success stats, state)
+      else if num_tests stats >= max_success orelse
+              #num_failed_tests stats = num_counterexamples
+      then (Failure (stats, failure_data counterexamples), state)
+      else (*test input and attempt to shrink on failure*)
+        let val (input_opt, state) = opt_gen state
+        in
+          case input_opt of
+            NONE =>
+              if #num_failed_tests stats > 0
+              then (Failure (stats, failure_data counterexamples), state)
+              else (Success stats, state)
+          | SOME input =>
+            let val (result, stats) = run_a_test prop input stats
+            in
+              case result of
+                Result true => run_tests opt_gen state stats counterexamples
+              | Result false =>
+                  let val counterexamples = try_shrink prop shrink input :: counterexamples
+                  in run_tests opt_gen state stats counterexamples end
+              | Discard =>
+                  if #num_recently_discarded_tests stats > max_discard_ratio
+                  then
+                    if #num_failed_tests stats > 0
+                    then (Failure (stats, failure_data counterexamples), state)
+                    else (Gave_Up stats, state)
+                  else run_tests opt_gen state stats counterexamples
+              | Exception exn =>
+                  (Failure (stats, failure_data_exn (input :: counterexamples) exn), state)
+            end
+        end
   in
-    (* TODO Perhaps use ML_Profiling.profile_time to get more accurate results? Far slower *)
-    Timing.timing (fn _ =>
-      (Util.fold_seq run_test seq (init_stats, ([], 0)) handle EarlyReturn x => x)
-      ||> apply_show o fst) ()
-    |-> print_result
+    Timing.timing (fn _ => run_tests opt_gen state init_stats []) ()
+    |> uncurry (apfst o output_style show_opt ctxt name)
+    |> snd
   end
 
-(* Limit is set here instead of in the check function above because only randomly generated values
-require a limit *)
-fun limit gen ctxt =
-  let
-    val steps = Config.get ctxt Configuration.max_success *
-      Config.get ctxt Configuration.max_discard_ratio
-    fun opt_gen i = if i >= steps then Generator.lift NONE else Generator.map SOME gen
-  in fst o Generator.seq opt_gen end
+fun check_style style show_opt shrink =
+  test style empty_stats show_opt shrink o Generator.map SOME
 
-fun check_seq_base seq = run (Property.empty_stats false) NONE Shrink.none seq
-fun check_seq show = run (Property.empty_stats false) (SOME show) Shrink.none
+fun check_shrink show = check_style Output_Style.default (SOME show)
+fun check show = check_shrink show Shrink.none
 
-fun check_list_base xs = check_seq_base (Seq.of_list xs)
+fun check_base gen = check_style Output_Style.default NONE Shrink.none gen
+
+fun check_seq_style style show_opt seq name prop ctxt =
+  test style empty_stats show_opt Shrink.none Generator.of_seq name prop ctxt seq
+
+fun check_seq show = check_seq_style Output_Style.default (SOME show)
+fun check_seq_base seq = check_seq_style Output_Style.default NONE seq
+
+fun check_list_style style show = check_seq_style style show o Seq.of_list
 fun check_list show = check_seq show o Seq.of_list
-
-fun check_base gen name prop ctxt r =
-  run (Property.empty_stats true) NONE Shrink.none (limit gen ctxt r) name prop ctxt
-
-fun check show gen name prop ctxt r =
-  run (Property.empty_stats true) (SOME show) Shrink.none (limit gen ctxt r) name prop ctxt
-
-fun check_shrink show shrink gen name prop ctxt r =
-  run (Property.empty_stats true) (SOME show) shrink (limit gen ctxt r) name prop ctxt
+fun check_list_base xs = check_seq_base (Seq.of_list xs)
 
 end

@@ -1,11 +1,11 @@
-(*  Title:      Tools/Spec_Check/gen_construction.ML
+(*  Title:      Tools/Spec_Check/construct_gen.ML
     Author:     Lukas Bulwahn and Nicolai Schaffroth, TU Muenchen
-    Author:     Christopher League
 
-Constructing generators and pretty printing function for complex types.
+Dynamic construction of generators and show function (returned as strings that need to be compiled)
+for complex types.
 *)
 
-signature CONSTRUCT_GEN =
+signature GEN_DYNAMIC =
 sig
   val register : string * (string * string) -> theory -> theory
   type mltype
@@ -16,7 +16,7 @@ sig
   val string_of_ref : ('a -> string) -> 'a Unsynchronized.ref -> string
 end;
 
-structure Construct_Gen : CONSTRUCT_GEN =
+structure Gen_Dynamic : GEN_DYNAMIC =
 struct
 
 (* Parsing ML types *)
@@ -93,17 +93,21 @@ fun string_of_ref f r = f (!r) ^ " ref";
 val initial_content = Symtab.make [
   ("bool", ("Generator.bernoulli 0.5", "Gen_Construction.string_of_bool")),
   ("option", ("Generator.option (Generator.bernoulli (2.0 / 3.0))", "ML_Syntax.print_option")),
-  ("list", ("Generator.unfold_while (K (Generator.bernoulli (2.0 / 3.0)))", "ML_Syntax.print_list")),
+  ("list", ("Generator.unfold_while (K (Generator.bernoulli (2.0 / 3.0)))",
+            " ML_Syntax.print_list")),
   ("unit", ("gen_unit", "fn () => \"()\"")),
-  ("int", ("Generator.range_int (-2147483647,2147483647)", "string_of_int")),
+  ("int", ("Generator.range_int (~2147483647,2147483647)", "string_of_int")),
   ("real", ("Generator.real", "string_of_real")),
   ("char", ("Generator.char", "fn c => \"#'\" ^ (Char.toString c) ^ \"'\"")),
-  ("string", ("Generator.string (Random.range (0, 100)) Generator.char", "ML_Syntax.print_string")),
+  ("string", ("Generator.string (Generator.nonneg 100) Generator.char", "ML_Syntax.print_string")),
   ("->", ("Generator.function' o snd", "fn (_, _) => fn _ => \"fn\"")),
-  ("typ", ("Generator.typ 10", "ML_Syntax.print_typ")),
-  ("term", ("Generator.term_det (fn h => fn (i, r) => "
-            ^ "let val (s,r) = Generator.def_sym_gen (1,1,1) 20 (4-h) r in (s,(4-h,r)) end)",
-            "ML_Syntax.print_term"))]
+  ("typ", ("Generator.typ'' (Generator.lift 8) (Generator.nonneg 4) (Generator.nonneg 4) (1,1,1)",
+           "Pretty.string_of o Syntax.pretty_typ (Context.the_local_context ())")),
+  ("term", ("Generator.term_tree (fn h => fn _ => "
+            ^ "let val ngen = Generator.nonneg (Int.max (0, 4-h))\n"
+            ^ "    val aterm_gen = Generator.aterm' (Generator.lift 8) ngen (1,1,1,0)\n"
+            ^ "in Generator.zip aterm_gen ngen end)",
+            "Pretty.string_of o Syntax.pretty_term (Context.the_local_context ())"))]
 
 structure Data = Theory_Data
 (
@@ -153,12 +157,12 @@ fun compose_printer _ Var = "Int.toString"
         fun tuple_body t = space_implode " ^ \", \" ^ "
           (map (fn (ty, n) => "(" ^ compose_printer ctxt ty ^ ") x" ^ string_of_int n)
           (t ~~ (1 upto (length t))))
-      in "fn (" ^ tuple_head (length t) ^ ") => \"(\" ^ " ^ tuple_body t ^ " ^ \")\"" end;
+      in implode ["fn (", tuple_head (length t), ") => \"(\" ^ ", tuple_body t, " ^ \")\""] end
 
 (*produce compilable string*)
-fun build_check ctxt name (ty, spec) = "Spec_Check.check (" ^ compose_printer ctxt ty
-  ^ ") (" ^ compose_generator ctxt ty ^ ")  \"" ^ name
-  ^ "\" (Property.property (" ^ spec ^ ")) (Context.the_local_context ()) (Random.new ());"
+fun build_check ctxt name (ty, spec) = implode ["Spec_Check.check (Pretty.str o (",
+  compose_printer ctxt ty, ")) (", compose_generator ctxt ty, ")  \"", name,
+  "\" (Property.prop (", spec, ")) (Context.the_local_context ()) (Random.new ());"]
 
 (*produce compilable string - non-eqtype functions*)
 (*
@@ -177,4 +181,3 @@ fun safe_check name (ty, spec) =
 *)
 
 end;
-

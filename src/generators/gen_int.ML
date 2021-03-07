@@ -1,4 +1,4 @@
-(*  Title:      Tools/Spec_Check/generators/generator.ML
+(*  Title:      Tools/Spec_Check/generators/gen_int.ML
     Author:     Lukas Bulwahn and Nicolai Schaffroth, TU Muenchen
     Author:     Christopher League
 
@@ -7,15 +7,15 @@ Random generators for ints.
 
 signature GEN_INT = sig
 
-  (* `pos m` generates an integer in [1, m] *)
+  (*pos m generates an integer in [1, m]*)
   val pos : int -> int Gen_Types.gen
-  (* `neg m` generates an integer in [m, 1] *)
+  (*neg m generates an integer in [m, 1]*)
   val neg : int -> int Gen_Types.gen
-  (* `nonneg m` generates an integer in [0, m] *)
+  (*nonneg m generates an integer in [0, m]*)
   val nonneg : int -> int Gen_Types.gen
-  (* `nonpos m` generates an integer in [m, 0] *)
+  (*nonpos m generates an integer in [m, 0]*)
   val nonpos : int -> int Gen_Types.gen
-  
+
   val coint : (int, 'b) Gen_Types.cogen
 end
 

@@ -1,10 +1,10 @@
-(* TODO untested *)
-signature SPEC_CHECK_COMP =
+(*TODO: not very well tested*)
+signature SPEC_CHECK_DYNAMIC =
 sig
-  val check_property : Proof.context -> string -> unit
+  val check_dynamic : Proof.context -> string -> unit
 end
 
-structure Spec_Check_Comp =
+structure Spec_Check_Dynamic : SPEC_CHECK_DYNAMIC =
 struct
 
 (*call the compiler and pass resulting type string to the parser*)
@@ -22,9 +22,7 @@ fun determine_type ctxt s =
         (fn () =>
           ML_Compiler0.ML context
             {line = 0, file = "generated code", verbose = true, debug = false} s) ()
-  in
-    Construct_Gen.parse_pred (! return)
-  end;
+  in Gen_Dynamic.parse_pred (! return) end;
 
 (*call the compiler and run the test*)
 fun run_test ctxt s =
@@ -60,19 +58,17 @@ fun gen_check_property check ctxt s =
   let
     val func = make_fun s
     val (_, ty) = determine_type ctxt func
-  in run_test ctxt (check ctxt "Check" (ty, func)) end;
+  in run_test ctxt (check ctxt "Dynamic Test" (ty, func)) end;
 
-val check_property = gen_check_property Construct_Gen.build_check
+val check_dynamic = gen_check_property Gen_Dynamic.build_check
 (*val check_property_safe = gen_check_property Construct_Gen.safe_check*)
 
 (*perform test for specification function*)
-fun gen_check_property_f check ctxt s =
+(*fun gen_check_property_f check ctxt s =
   let
     val (name, ty) = determine_type ctxt s
   in run_test ctxt (check ctxt name (ty, s)) end;
 
-val check_property_f = gen_check_property_f Construct_Gen.build_check
+val check_property_f = gen_check_property_f Gen_Dynamic.build_check*)
 (*val check_property_safe_f_ = gen_check_property_f Construct_Gen.safe_check*)
 end;
-
-fun check_property s = Spec_Check_Comp.check_property (Context.the_local_context ()) s;
