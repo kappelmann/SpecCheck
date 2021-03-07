@@ -27,6 +27,7 @@ sig
   (* ensures that all generated values fulfill the predicate; loops if the predicate is never
   satisfied by the generated values. *)
   val filter : ('a -> bool) -> ('a, 's) gen_state -> ('a, 's) gen_state
+  val filter_limited : ('a -> bool) -> ('a, 's) gen_state -> ('a, 's) gen_state
 
   (* bernoulli random variable with parameter p \<in> [0,1] *)
   val bernoulli : real -> bool gen
@@ -112,6 +113,11 @@ fun map4 f = map (fn (a,b,c,d) => f a b c d) oooo zip4
 fun filter p gen r =
   let fun loop (x, r) = if p x then (x, r) else loop (gen r)
   in loop (gen r) end
+
+fun filter_limited p gen r =
+  let fun loop 0 _ = raise Fail "Generator fails to satisfy predicate"
+        | loop n (x, r) = if p x then (x, r) else loop (n-1) (gen r)
+  in loop 100 (gen r) end
 
 fun bernoulli p r = let val (x,r) = Random.real r in (x <= p, r) end
 
