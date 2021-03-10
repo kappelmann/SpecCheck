@@ -7,6 +7,9 @@ Random generators for reals.
 
 signature GEN_REAL = sig
 
+  (*range_real (x,y) r returns a value in [x;y]*)
+  val range_real : real * real -> real Gen_Types.gen
+
   val real : real Gen_Types.gen
 
   val real_pos : real Gen_Types.gen
@@ -23,6 +26,11 @@ struct
 
 open Gen_Base
 open Gen_Text
+
+fun range_real (min, max) r =
+  if min > max
+  then raise Fail (Util.spaces ["Range_Real:", string_of_real min, ">", string_of_real max])
+  else Random.real_unit r |>> (fn s => min + (s * max - s * min))
 
 val digits = string (range_int (1, Real.precision)) (range_char (#"0", #"9"))
 

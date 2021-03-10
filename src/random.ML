@@ -21,8 +21,9 @@ sig
   (*use this function for reproducible randomness; inputs \<le> 0 are mapped to 1*)
   val deterministic_seed : int -> rand
 
-  (*returns a real in [0;1]; theoretically, with 2^31-2 equidistant discrete values*)
-  val real : rand -> real * rand
+  (*returns a real in the unit interval [0;1]; theoretically, with 2^31-2 equidistant discrete
+    values*)
+  val real_unit : rand -> real * rand
 
   (*splits a seed into two new independent seeds*)
   val split : rand -> rand * rand
@@ -47,7 +48,7 @@ fun new () =
 
 fun deterministic_seed r = Int.max (1, r mod m)
 
-fun real r = ((Real.fromInt (r - 1)) / (Real.fromInt (m - 2)), next r)
+fun real_unit r = ((Real.fromInt (r - 1)) / (Real.fromInt (m - 2)), next r)
 
 (*TODO: In theory, the current implementation could return two seeds directly adjacent in the
 sequence of the pseudorandom number generator. Practically, however, it should be good enough.*)
