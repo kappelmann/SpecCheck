@@ -35,9 +35,6 @@ sig
   (*random variable following a binomial distribution with parameters p \<in> [0,1] and n \<ge> 0*)
   val binom_dist : real -> int -> int gen
 
-  (*range_real (x,y) r returns a value in [x;y]*)
-  val range_real : real * real -> real gen
-
   (*range_int (x,y) r returns a value in [x;y]*)
   val range_int : int * int -> int gen
 
@@ -122,7 +119,7 @@ fun filter_bounded bound p gen r =
         | loop n (x, r) = if p x then (x, r) else loop (n-1) (gen r)
   in loop bound (gen r) end
 
-fun bernoulli p r = let val (x,r) = Random.real r in (x <= p, r) end
+fun bernoulli p r = let val (x,r) = Random.real_unit r in (x <= p, r) end
 
 fun binom_dist p n r =
   let
@@ -137,16 +134,11 @@ fun binom_dist p n r =
         end
    in if n < 0 then raise Domain else binom_dist_unchecked p n r end
 
-fun range_real (min, max) r =
-  if min > max
-  then raise Fail (Util.spaces ["Range_Real:", string_of_real min, ">", string_of_real max])
-  else Random.real r |>> (fn s => min + (s * max - s * min))
-
 fun range_int (min, max) r =
   if min > max
   then raise Fail (Util.spaces ["Range_Int:", string_of_int min, ">", string_of_int max])
   else
-    Random.real r
+    Random.real_unit r
     |>> (fn s => Int.min (min + Real.floor (s * Real.fromInt (max - min + 1)), max))
 
 fun one_of v r =
@@ -196,7 +188,7 @@ fun unfold_while bool_g_of_elem g r =
 
 fun shuffle xs r =
   let
-    val (ns, r) = list (lift (length xs)) Random.real r
+    val (ns, r) = list (lift (length xs)) Random.real_unit r
     val real_ord = make_ord (op <=)
     val xs = ListPair.zip (ns, xs) |> sort (real_ord o apply2 fst) |> List.map snd
   in (xs, r) end
