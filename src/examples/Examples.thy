@@ -13,7 +13,7 @@ structure Prop = Property
 
 ML_command \<open>
 let
-  val int_gen = Gen.range_int (~10, 10)
+  val int_gen = Gen.range_int (~10000000, 10000000)
   val size_gen = Gen.nonneg 10
   val check_list = check_shrink (Show.list Show.int) (Shrink.list Shrink.int)
     (Gen.list size_gen int_gen)

@@ -28,13 +28,13 @@ struct
 
 datatype ('a,'b) either = Left of 'a | Right of 'b
 
-fun fold_seq f seq acc = case Seq.pull seq of
-    SOME (v, seq) => fold_seq f seq (f v acc)
+fun fold_seq f xq acc = case Seq.pull xq of
+    SOME (v, xq) => fold_seq f xq (f v acc)
   | NONE => acc
 
-fun fold_seq_bounded steps f seq acc =
-  let val seq = if steps < 0 then seq else Seq.take steps seq
-  in fold_seq f seq acc end
+fun fold_seq_bounded steps f xq acc =
+  let val xq' = if steps < 0 then xq else Seq.take steps xq
+  in fold_seq f xq' acc end
 
 val spaces = space_implode " "
 

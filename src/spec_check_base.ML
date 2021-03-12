@@ -14,6 +14,8 @@ sig
     num_failed_tests : int,
     num_discarded_tests : int,
     num_recently_discarded_tests : int,
+    num_success_shrinks : int,
+    num_failed_shrinks : int,
     timing : Timing.timing
   }
 
@@ -21,6 +23,7 @@ sig
 
   val empty_stats : stats
   val num_tests : stats -> int
+  val num_shrinks : stats -> int
 
   type 'a failure_data = {
     counterexamples : 'a list,
@@ -49,6 +52,8 @@ type stats = {
   num_failed_tests : int,
   num_discarded_tests : int,
   num_recently_discarded_tests : int,
+  num_success_shrinks : int,
+  num_failed_shrinks : int,
   timing : Timing.timing
 }
 
@@ -57,6 +62,8 @@ val empty_stats = {
   num_failed_tests = 0,
   num_discarded_tests = 0,
   num_recently_discarded_tests = 0,
+  num_success_shrinks = 0,
+  num_failed_shrinks = 0,
   timing = {
     cpu = Time.zeroTime,
     elapsed = Time.zeroTime,
@@ -73,6 +80,9 @@ fun add_timing {elapsed = elapsed1, cpu = cpu1, gc = gc1}
 
 fun num_tests {num_success_tests, num_failed_tests, ...} =
   num_success_tests + num_failed_tests
+
+fun num_shrinks {num_success_shrinks, num_failed_shrinks, ...} =
+  num_success_shrinks + num_failed_shrinks
 
 type 'a failure_data = {
   counterexamples : 'a list,

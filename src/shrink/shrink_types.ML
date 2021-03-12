@@ -6,12 +6,12 @@ Shared type definitions for SpecCheck shrinkable types.
 
 signature SHRINK_TYPES =
 sig
-  type 'a shrink = 'a -> 'a list
+  type 'a shrink = 'a -> 'a Seq.seq
 end
 
 structure Shrink_Types : SHRINK_TYPES =
 struct
 
-type 'a shrink = 'a -> 'a list
+type 'a shrink = 'a -> 'a Seq.seq
 
 end

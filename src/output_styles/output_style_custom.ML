@@ -51,8 +51,8 @@ fun print_failure_data ctxt show_opt failure_data =
       in fold (fn x => fn _ => warning x) counterexamples () end
 
 fun print_failure ctxt show_opt (stats, failure_data) =
-  ((Util.spaces ["Failed! Falsified (after", string_of_int (num_tests stats), "test(s)):"]
-  |> Util.pwarning);
+  ((Util.spaces ["Failed! Falsified (after", string_of_int (num_tests stats), "test(s) and ",
+    string_of_int (num_shrinks stats), "shrink(s)):"] |> Util.pwarning);
   print_failure_data ctxt show_opt failure_data)
 
 fun print_stats ctxt stats total_time =

@@ -73,11 +73,11 @@ sig
   (*generates SOME value if passed bool generator returns true and NONE otherwise*)
   val option : (bool, 's) gen_state -> ('a, 's) gen_state -> ('a option, 's) gen_state
 
-  (*Creates a sequence of values using the passed generator, which depend on the current index
-    of the sequence. The sequence stops when the first NONE value is returned by the generator.*)
-  val seq : (int -> 'a option gen) -> 'a Seq.seq gen
+  (*seq gen init_state creates a sequence where gen takes a state and returns the next element and
+    an updated state. The sequence stops when the first NONE value is returned by the generator.*)
+  val seq : ('a option, 's * Random.rand) gen_state -> 's -> ('a Seq.seq) gen
 
-  (*Create a generator that returns all elements of the sequence in order*)
+  (*creates a generator that returns all elements of the sequence in order*)
   val of_seq : ('a option, 'a Seq.seq) gen_state
 
   val unit : (unit, 's) gen_state
@@ -200,16 +200,16 @@ fun option bool_g g r =
     (false, r) => (NONE, r)
   | (true, r) => map SOME g r
 
-fun seq gen_of_idx r =
+fun seq gen xq r =
   let
     val (r1, r2) = Random.split r
-    fun gen_next idx r () = case gen_of_idx idx r of
+    fun gen_next p () = case gen p of
       (NONE, _) => NONE
-    | (SOME v, r) => SOME (v, Seq.make (gen_next (idx + 1) r))
-  in (Seq.make (gen_next 0 r1), r2) end
+    | (SOME v, p) => SOME (v, Seq.make (gen_next p))
+  in (Seq.make (gen_next (xq, r1)), r2) end
 
-fun of_seq seq = case Seq.pull seq of
-    SOME (x, seq) => (SOME x, seq)
+fun of_seq xq = case Seq.pull xq of
+    SOME (x, xq) => (SOME x, xq)
   | NONE => (NONE, Seq.empty)
 
 fun unit s = lift () s
