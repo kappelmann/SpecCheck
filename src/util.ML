@@ -9,10 +9,10 @@ sig
 
 datatype ('a,'b) either = Left of 'a | Right of 'b
 
-(*folds a sequence until it stops*)
+(*folds a sequence until it terminates*)
 val fold_seq : ('a -> 'b -> 'b) -> 'a Seq.seq -> 'b -> 'b
 
-(*Folds a sequence for a limited number of steps or until the sequence stops.
+(*Folds a sequence for a limited number of steps or until the sequence terminates.
 If the passed number of steps is negative, the complete sequence will be folded.*)
 val fold_seq_bounded : int -> ('a -> 'b -> 'b) -> 'a Seq.seq -> 'b -> 'b
 

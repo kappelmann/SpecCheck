@@ -15,7 +15,8 @@ ML_command \<open>
 let
   val int_gen = Gen.range_int (~10, 10)
   val size_gen = Gen.nonneg 10
-  val check_list = check_shrink (Show.list Show.int) Shrink.list' (Gen.list size_gen int_gen)
+  val check_list = check_shrink (Show.list Show.int) (Shrink.list Shrink.int)
+    (Gen.list size_gen int_gen)
   fun list_test (k, f, xs) =
     AList.lookup (op=) (AList.map_entry (op=) k f xs) k = Option.map f (AList.lookup (op=) xs k)
 
@@ -24,18 +25,19 @@ let
     (Gen.list size_gen (Gen.zip int_gen int_gen))
 in
   Lecker.test_group @{context} (Random.new ()) [
-    Prop.prop (fn xs => rev xs = xs) |> check_list "reverse",
-    Prop.prop (fn xs => rev (rev xs) = xs) |> check_list "reverse twice",
+    Prop.prop (fn xs => rev xs = xs) |> check_list "rev = I",
+    Prop.prop (fn xs => rev (rev xs) = xs) |> check_list "rev o rev = I",
     Prop.prop list_test |> check list_test_show list_test_gen "lookup map equiv map lookup"
   ]
 end
 \<close>
 
-text \<open>The next three examples roughly correspond to the above test group. Compared to the
-string-based method, the method above is more flexible - you can change your generators, shrinking
-methods, and show instances - and robust - you are not reflecting strings (which might contain
-typos) but entering type-checked code. In exchange, it is a bit more work to set up the generators.
-However, in practice, one shouldn't rely on default generators in most cases anyway.\<close>
+text \<open>The next three examples roughly correspond to the above test group (except that there's no
+shrinking). Compared to the string-based method, the method above is more flexible - you can change
+your generators, shrinking methods, and show instances - and robust - you are not reflecting strings
+(which might contain typos) but entering type-checked code. In exchange, it is a bit more work to
+set up the generators. However, in practice, one shouldn't rely on default generators in most cases
+anyway.\<close>
 
 ML_command \<open>
 check_dynamic @{context} "ALL xs. rev xs = xs";

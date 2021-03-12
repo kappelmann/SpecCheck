@@ -14,6 +14,8 @@ sig
   val product3 : 'a shrink -> 'b shrink -> 'c shrink -> ('a * 'b * 'c) shrink
   val product4 : 'a shrink -> 'b shrink -> 'c shrink -> 'd shrink -> ('a * 'b * 'c * 'd) shrink
 
+  val int : int shrink
+
   val list : 'a shrink -> ('a list shrink)
   val list' : ('a list) shrink
 
@@ -50,18 +52,25 @@ fun product4 shrinkA shrinkB shrinkC shrinkD (a, b, c, d) =
   |-> product_list
   |> map (fn ((a,b,c),d) => (a,b,c,d))
 
+fun int i =
+  let
+    fun pred i s = (i <> 0, s)
+    fun next i = let val half = Int.quot (i, 2) in (half, half) end
+  in 0 :: (Generator.unfold_while pred next i |> rev o fst) end
+
+(*Note: shrinking with large lists and element shrinkers will explode very quickly*)
 fun list _ [] = []
-  | list elem_shrink [x] = [] :: map single (elem_shrink x)
   | list elem_shrink (x::xs) =
-      [] :: flat (map (fn xs => map (fn x => x :: xs) (elem_shrink x @ [x])) (list elem_shrink xs))
+    let val elems = elem_shrink x @ [x]
+    in  [] :: flat (map (fn xs => map (fn x => x :: xs) elems) (list elem_shrink xs)) end
 
 fun list' xs = list none xs
 
-(*TODO: improve this shrinker*)
 fun term t =
   case t of 
-    t1 $ t2 => t1 :: t2 :: (term t1 @ term t2)
-  | Abs (_,_,t) => t :: term t
+    t1 $ t2 => let val prod = product term term (t1, t2)
+      in t1 :: t2 :: flat (map (fn (t1, t2) => [t1, t2, t1 $ t2]) prod) end
+  | Abs (x, T, t) => t :: flat (map (fn t => [t, Abs (x, T, t)]) (term t))
   | _ => []
 
 end

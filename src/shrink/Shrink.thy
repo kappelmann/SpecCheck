@@ -1,5 +1,5 @@
 theory Shrink
-imports Pure
+imports Generators
 begin
 
 ML_file \<open>shrink_types.ML\<close>

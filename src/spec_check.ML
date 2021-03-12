@@ -71,10 +71,11 @@ fun run_a_test prop input
 
 fun try_shrink prop shrink input =
   let
-    fun is_failure input =case run_a_test prop input empty_stats |> fst of
+    fun is_failure input = case run_a_test prop input empty_stats |> fst of
         Result is_success => not is_success
       | Discard => false
-      | Exception exn => (Util.pwarning "Exception raised during shrinking:"; Exn.reraise exn)
+      | Exception _ => false (*do not count exceptions as a failure because the shrinker might
+                               just have broken some invariant of the function*)
   in
     (*always try the first successful branch and abort without backtracking once no further
       shrink is possible.*)

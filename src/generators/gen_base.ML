@@ -184,7 +184,7 @@ fun unfold_while bool_g_of_elem g r =
         then unfold_while_accum (x::xs, r)
         else (xs, r)
       end
-  in unfold_while_accum ([], r) end
+  in unfold_while_accum ([], r) |>> rev end
 
 fun shuffle xs r =
   let
