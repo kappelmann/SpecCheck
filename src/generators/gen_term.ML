@@ -134,14 +134,9 @@ struct
 fun sort size_gen = Gen_Base.list size_gen
 fun dummyS s = Gen_Base.lift Term.dummyS s
 
-fun basic_name name num_variants_gen r =
-  let fun add_next_name _ (ns, n) = let val n = Symbol.bump_string n in (n :: ns, n) end
-  in
-    num_variants_gen r
-    |>> (fn n => fold add_next_name (1 upto n) ([name], name))
-    |>> fst
-    |-> Gen_Base.elementsL
-  end
+fun basic_name name num_variants_gen =
+  num_variants_gen
+  #>> (fn i => name ^ "_" ^ string_of_int i)
 
 fun indexname basic_name_gen = Gen_Base.zip basic_name_gen
 
