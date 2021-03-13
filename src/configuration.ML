@@ -23,7 +23,7 @@ val max_success = Attrib.setup_config_int \<^binding>\<open>spec_check_max_succe
 
 val max_discard_ratio = Attrib.setup_config_int \<^binding>\<open>spec_check_max_discard_ratio\<close> (K 10)
 
-val max_shrinks = Attrib.setup_config_int \<^binding>\<open>spec_check_max_shrinks\<close> (K 1000)
+val max_shrinks = Attrib.setup_config_int \<^binding>\<open>spec_check_max_shrinks\<close> (K 10000)
 
 val num_counterexamples = Attrib.setup_config_int \<^binding>\<open>spec_check_num_counterexamples\<close> (K 1)
 
