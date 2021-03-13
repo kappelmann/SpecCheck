@@ -40,7 +40,7 @@ tool's implementation for storing data and printing output.
 ## Next Steps
 
 * Implement sizing methods (cf. QuickCheck's `sized`)
-* Implement shrinking methods commonly used types
+* Implement shrinking methods for commonly used types
 
 ## License
 
