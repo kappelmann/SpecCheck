@@ -48,7 +48,7 @@ fun print_failure_data ctxt show_opt failure_data =
           #counterexamples failure_data
           |> map (Pretty.string_of o show)
           |> maybe_sort
-      in fold (fn x => fn _ => warning x) counterexamples () end
+      in fold (fn x => fn _ => Util.pwarning x) counterexamples () end
 
 fun print_failure ctxt show_opt (stats, failure_data) =
   ((Util.spaces ["Failed! Falsified (after", string_of_int (num_tests stats), "test(s) and ",

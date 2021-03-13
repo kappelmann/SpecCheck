@@ -131,24 +131,26 @@ end
 structure Gen_Term : GEN_TERM =
 struct
 
-open Gen_Base
-
-fun sort size_gen = list size_gen
-fun dummyS s = lift Term.dummyS s
+fun sort size_gen = Gen_Base.list size_gen
+fun dummyS s = Gen_Base.lift Term.dummyS s
 
 fun basic_name name num_variants_gen r =
-  num_variants_gen r
-  |>> Name.invent Name.context name
-  |-> elementsL
+  let fun add_next_name _ (ns, n) = let val n = Symbol.bump_string n in (n :: ns, n) end
+  in
+    num_variants_gen r
+    |>> (fn n => fold add_next_name (1 upto n) ([name], name))
+    |>> fst
+    |-> Gen_Base.elementsL
+  end
 
-fun indexname basic_name_gen = zip basic_name_gen
+fun indexname basic_name_gen = Gen_Base.zip basic_name_gen
 
 fun type_name num_variants_gen = basic_name "k" num_variants_gen
 
-fun tfree_name basic_name_gen = map (curry op^"'") basic_name_gen
+fun tfree_name basic_name_gen = Gen_Base.map (curry op^"'") basic_name_gen
 fun tfree_name' num_variants_gen = tfree_name (basic_name "a" num_variants_gen)
 
-fun tvar_name indexname_gen = map (curry op^"'" |> apfst) indexname_gen
+fun tvar_name indexname_gen = Gen_Base.map (curry op^"'" |> apfst) indexname_gen
 fun tvar_name' num_variants_gen =
   tvar_name o indexname (basic_name "a" num_variants_gen)
 
@@ -158,60 +160,61 @@ fun var_name num_variants_gen = indexname (free_name num_variants_gen)
 
 (* types *)
 
-fun tfree name_gen = map TFree o zip name_gen
+fun tfree name_gen = Gen_Base.map TFree o Gen_Base.zip name_gen
 fun tfree' num_variants_gen =
   tfree_name' num_variants_gen
   |> (fn name_gen => tfree name_gen dummyS)
 
-fun tvar idx_gen = map TVar o zip idx_gen
+fun tvar idx_gen = Gen_Base.map TVar o Gen_Base.zip idx_gen
 fun tvar' num_variants_gen =
   tvar_name' num_variants_gen
   #> (fn name_gen => tvar name_gen dummyS)
 
-fun atyp tfree_gen tvar_gen (wtfree, wtvar) = one_ofWL [(wtfree, tfree_gen), (wtvar, tvar_gen)]
+fun atyp tfree_gen tvar_gen (wtfree, wtvar) =
+  Gen_Base.one_ofWL [(wtfree, tfree_gen), (wtvar, tvar_gen)]
 fun atyp' num_variants_gen = atyp (tfree' num_variants_gen) o tvar' num_variants_gen
 
 fun type' type_name_gen arity_gen tfree_gen tvar_gen (weights as (wtype, wtfree, wtvar)) =
   (*eta-abstract to avoid strict evaluation, causing an infinite loop*)
   [(wtype, fn r => type' type_name_gen arity_gen tfree_gen tvar_gen weights r),
    (wtfree, fn r => tfree_gen r), (wtvar, fn r => tvar_gen r)]
-  |> one_ofWL
-  |> list arity_gen
-  |> zip type_name_gen
-  |> map Type
+  |> Gen_Base.one_ofWL
+  |> Gen_Base.list arity_gen
+  |> Gen_Base.zip type_name_gen
+  |> Gen_Base.map Type
 
 fun type'' num_variants_gen = type_name num_variants_gen |> type'
 
 fun typ type_gen tfree_gen tvar_gen (wtype, wtfree, wtvar) =
-  one_ofWL [(wtype, type_gen), (wtfree, tfree_gen), (wtvar, tvar_gen)]
+  Gen_Base.one_ofWL [(wtype, type_gen), (wtfree, tfree_gen), (wtvar, tvar_gen)]
 fun typ' num_variants_gen arity_gen tfree_gen tvar_gen weights =
   typ (type'' num_variants_gen arity_gen tfree_gen tvar_gen weights) tfree_gen tvar_gen weights
 fun typ'' num_variants_gen arity_gen =
   typ' num_variants_gen arity_gen (tfree' num_variants_gen) o tvar' num_variants_gen
 
-fun dummyT s = lift Term.dummyT s
+fun dummyT s = Gen_Base.lift Term.dummyT s
 
 (* terms *)
 
-fun const name_gen = map Const o zip name_gen
+fun const name_gen = Gen_Base.map Const o Gen_Base.zip name_gen
 fun const' num_variants_gen =
   const_name num_variants_gen
   |> (fn name_gen => const name_gen dummyT)
 
-fun free name_gen = map Free o zip name_gen
+fun free name_gen = Gen_Base.map Free o Gen_Base.zip name_gen
 fun free' num_variants_gen =
   free_name num_variants_gen
   |> (fn name_gen => free name_gen dummyT)
 
-fun var idx_gen = map Var o zip idx_gen
+fun var idx_gen = Gen_Base.map Var o Gen_Base.zip idx_gen
 fun var' num_variants_gen =
   var_name num_variants_gen
   #> (fn name_gen => var name_gen dummyT)
 
-fun bound int_gen = map Bound int_gen
+fun bound int_gen = Gen_Base.map Bound int_gen
 
 fun aterm const_gen free_gen var_gen bound_gen (wconst, wfree, wvar, wbound) =
-  one_ofWL [(wconst, const_gen), (wfree, free_gen), (wvar, var_gen), (wbound, bound_gen)]
+  Gen_Base.one_ofWL [(wconst, const_gen), (wfree, free_gen), (wvar, var_gen), (wbound, bound_gen)]
 fun aterm' num_variants_gen index_gen =
   aterm (const' num_variants_gen) (free' num_variants_gen) (var' num_variants_gen index_gen)
     (bound num_variants_gen)

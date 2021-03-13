@@ -68,7 +68,7 @@ fun list _ [] = Seq.single []
   | list elem_shrink (x::xs) =
     let
       val elems = Seq.append (elem_shrink x) (Seq.single x)
-      val seq = Seq.flat (Seq.map (fn xs => Seq.map (fn x => x :: xs) elems) (list elem_shrink xs))
+      val seq = Seq.maps (fn xs => Seq.map (fn x => x :: xs) elems) (list elem_shrink xs)
     in Seq.cons [] seq end
 
 fun list' xs = list none xs
