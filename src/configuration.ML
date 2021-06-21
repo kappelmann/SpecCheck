@@ -1,4 +1,10 @@
-signature CONFIGURATION =
+(*  Title:      Tools/Spec_Check/configuration.ML
+    Author:     Kevin Kappelmann
+
+Configuration options for SpecCheck.
+*)
+
+signature SPEC_CHECK_CONFIGURATION =
 sig
 
   (*maximum number of successful tests before succeeding*)
@@ -16,7 +22,7 @@ sig
 
 end
 
-structure Configuration : CONFIGURATION =
+structure Spec_Check_Configuration : SPEC_CHECK_CONFIGURATION =
 struct
 
 val max_success = Attrib.setup_config_int \<^binding>\<open>spec_check_max_success\<close> (K 100)

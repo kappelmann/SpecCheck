@@ -1,11 +1,15 @@
-(* Structure containing all generators. *)
-structure Generator =
+(*  Title:      Tools/Spec_Check/generators/gen.ML
+    Author:     Kevin Kappelmann, TU Muenchen
+
+Structure containing all generators.
+*)
+structure Spec_Check_Generator =
 struct
-open Gen_Types
-open Gen_Base
-open Gen_Text
-open Gen_Real
-open Gen_Int
-open Gen_Function
-open Gen_Term
+open Spec_Check_Gen_Types
+open Spec_Check_Gen_Base
+open Spec_Check_Gen_Text
+open Spec_Check_Gen_Real
+open Spec_Check_Gen_Int
+open Spec_Check_Gen_Function
+open Spec_Check_Gen_Term
 end

@@ -3,12 +3,12 @@
     Author:     Christopher League
 
 The base module of testable properties.
-A property is a the type of values that SpecCheck knows how to test.
+A property is the type of values that SpecCheck knows how to test.
 Properties not only test whether a given predicate holds, but, for example, can also have
 preconditions.
 *)
 
-signature PROPERTY =
+signature SPEC_CHECK_PROPERTY =
 sig
 
   type 'a pred = 'a -> bool
@@ -24,7 +24,7 @@ sig
 
 end
 
-structure Property : PROPERTY =
+structure Spec_Check_Property : SPEC_CHECK_PROPERTY =
 struct
 
 type 'a pred = 'a -> bool

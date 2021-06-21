@@ -2,11 +2,14 @@
     Author:     Kevin Kappelmann
 
 Testing framework that lets you combine SpecCheck tests into test suites.
+
+TODO: this file can be largely extended to become a pendant of Haskell's tasty:
+https://hackage.haskell.org/package/tasty
 *)
 
 signature LECKER =
 sig
-  (*the first parameter to test_group usually will be a context*)
+  (*the first parameter to test_group will usually be a context*)
   val test_group : 'a -> 's -> ('a -> 's -> 's) list -> 's
 end
 

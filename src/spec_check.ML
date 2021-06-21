@@ -9,39 +9,46 @@ signature SPEC_CHECK =
 sig
 
   (*tries to shrink a given (failing) input to a smaller, failing input*)
-  val try_shrink : 'a Property.prop -> 'a Shrink.shrink -> 'a -> int -> Spec_Check_Base.stats ->
-    ('a * Spec_Check_Base.stats)
+  val try_shrink : 'a Spec_Check_Property.prop -> 'a Spec_Check_Shrink.shrink -> 'a -> int ->
+    Spec_Check_Base.stats -> ('a * Spec_Check_Base.stats)
 
   (*runs a property for a given test case and returns the result and the updated the statistics*)
-  val run_a_test : 'a Property.prop -> 'a -> Spec_Check_Base.stats ->
+  val run_a_test : 'a Spec_Check_Property.prop -> 'a -> Spec_Check_Base.stats ->
     Spec_Check_Base.result_single * Spec_Check_Base.stats
 
   (*returns the new state after executing the test*)
-  val check_style : 'a Output_Style.output_style -> ('a Show.show) option ->  'a Shrink.shrink ->
-    ('a, 's) Generator.gen_state -> string -> 'a Property.prop -> Proof.context -> 's -> 's
-  val check_shrink : 'a Show.show -> 'a Shrink.shrink -> ('a, 's) Generator.gen_state -> string ->
-    'a Property.prop -> Proof.context -> 's -> 's
-  val check : 'a Show.show -> ('a, 's) Generator.gen_state -> string -> 'a Property.prop ->
+  val check_style : 'a Spec_Check_Output_Style_Types.output_style ->
+    ('a Spec_Check_Show.show) option ->  'a Spec_Check_Shrink.shrink ->
+    ('a, 's) Spec_Check_Generator.gen_state -> string -> 'a Spec_Check_Property.prop ->
     Proof.context -> 's -> 's
-  val check_base : ('a, 's) Generator.gen_state -> string -> 'a Property.prop -> Proof.context ->
-    's -> 's
+  val check_shrink : 'a Spec_Check_Show.show -> 'a Spec_Check_Shrink.shrink ->
+    ('a, 's) Spec_Check_Generator.gen_state -> string -> 'a Spec_Check_Property.prop ->
+    Proof.context -> 's -> 's
+  val check : 'a Spec_Check_Show.show -> ('a, 's) Spec_Check_Generator.gen_state -> string ->
+    'a Spec_Check_Property.prop -> Proof.context -> 's -> 's
+  val check_base : ('a, 's) Spec_Check_Generator.gen_state -> string ->
+    'a Spec_Check_Property.prop -> Proof.context -> 's -> 's
 
   (*returns all unprocessed elements of the sequence*)
-  val check_seq_style : 'a Output_Style.output_style -> ('a Show.show) option -> 'a Seq.seq ->
-    string -> 'a Property.prop -> Proof.context -> 'a Seq.seq
-  val check_seq : 'a Show.show -> 'a Seq.seq -> string -> 'a Property.prop -> Proof.context ->
+  val check_seq_style : 'a Spec_Check_Output_Style_Types.output_style ->
+    ('a Spec_Check_Show.show) option -> 'a Seq.seq -> string -> 'a Spec_Check_Property.prop ->
+    Proof.context -> 'a Seq.seq
+  val check_seq : 'a Spec_Check_Show.show -> 'a Seq.seq -> string -> 'a Spec_Check_Property.prop ->
+    Proof.context -> 'a Seq.seq
+  val check_seq_base : 'a Seq.seq -> string -> 'a Spec_Check_Property.prop -> Proof.context ->
     'a Seq.seq
-  val check_seq_base : 'a Seq.seq -> string -> 'a Property.prop -> Proof.context -> 'a Seq.seq
 
   (*returns all unused elements of the list*)
-  val check_list_style : 'a Output_Style.output_style -> ('a Show.show) option -> 'a list ->
-    string -> 'a Property.prop -> Proof.context -> 'a Seq.seq
-  val check_list : 'a Show.show -> 'a list -> string -> 'a Property.prop -> Proof.context ->
+  val check_list_style : 'a Spec_Check_Output_Style_Types.output_style ->
+    ('a Spec_Check_Show.show) option -> 'a list -> string -> 'a Spec_Check_Property.prop ->
+    Proof.context -> 'a Seq.seq
+  val check_list : 'a Spec_Check_Show.show -> 'a list -> string -> 'a Spec_Check_Property.prop ->
+    Proof.context -> 'a Seq.seq
+  val check_list_base : 'a list -> string -> 'a Spec_Check_Property.prop -> Proof.context ->
     'a Seq.seq
-  val check_list_base : 'a list -> string -> 'a Property.prop -> Proof.context -> 'a Seq.seq
 
 end
-
+                                                                   
 structure Spec_Check : SPEC_CHECK =
 struct
 
@@ -127,13 +134,14 @@ fun try_shrink prop shrink input max_shrinks stats =
 
 fun test output_style init_stats show_opt shrink opt_gen name prop ctxt state =
   let
-    val max_discard_ratio = Config.get ctxt Configuration.max_discard_ratio
-    val max_success = Config.get ctxt Configuration.max_success
+    val max_discard_ratio = Config.get ctxt Spec_Check_Configuration.max_discard_ratio
+    val max_success = Config.get ctxt Spec_Check_Configuration.max_success
     (*number of counterexamples to generate before stopping the test*)
     val num_counterexamples =
-      let val conf_num_counterexamples = Config.get ctxt Configuration.num_counterexamples
+      let val conf_num_counterexamples =
+        Config.get ctxt Spec_Check_Configuration.num_counterexamples
       in if conf_num_counterexamples > 0 then conf_num_counterexamples else ~1 end
-    val max_shrinks = Config.get ctxt Configuration.max_shrinks
+    val max_shrinks = Config.get ctxt Spec_Check_Configuration.max_shrinks
 
     fun run_tests opt_gen state stats counterexamples =
       (*stop the test run if enough (successful) tests were run or counterexamples were found*)
@@ -175,18 +183,20 @@ fun test output_style init_stats show_opt shrink opt_gen name prop ctxt state =
   end
 
 fun check_style style show_opt shrink =
-  test style empty_stats show_opt shrink o Generator.map SOME
+  test style empty_stats show_opt shrink o Spec_Check_Generator.map SOME
 
-fun check_shrink show = check_style Output_Style.default (SOME show)
-fun check show = check_shrink show Shrink.none
+fun check_shrink show = check_style Spec_Check_Default_Output_Style.default (SOME show)
+fun check show = check_shrink show Spec_Check_Shrink.none
 
-fun check_base gen = check_style Output_Style.default NONE Shrink.none gen
+fun check_base gen =
+  check_style Spec_Check_Default_Output_Style.default NONE Spec_Check_Shrink.none gen
 
 fun check_seq_style style show_opt xq name prop ctxt =
-  test style empty_stats show_opt Shrink.none Generator.of_seq name prop ctxt xq
+  test style empty_stats show_opt Spec_Check_Shrink.none Spec_Check_Generator.of_seq name prop ctxt
+    xq
 
-fun check_seq show = check_seq_style Output_Style.default (SOME show)
-fun check_seq_base xq = check_seq_style Output_Style.default NONE xq
+fun check_seq show = check_seq_style Spec_Check_Default_Output_Style.default (SOME show)
+fun check_seq_base xq = check_seq_style Spec_Check_Default_Output_Style.default NONE xq
 
 fun check_list_style style show = check_seq_style style show o Seq.of_list
 fun check_list show = check_seq show o Seq.of_list

@@ -5,9 +5,9 @@
 Basic utility functions to create and combine generators.
 *)
 
-signature GEN_BASE =
+signature SPEC_CHECK_GEN_BASE =
 sig
-  include GEN_TYPES
+  include SPEC_CHECK_GEN_TYPES
 
   (*generator that always returns the passed value*)
   val lift : 'a -> ('a, 's) gen_state
@@ -75,7 +75,7 @@ sig
 
   (*seq gen init_state creates a sequence where gen takes a state and returns the next element and
     an updated state. The sequence stops when the first NONE value is returned by the generator.*)
-  val seq : ('a option, 's * Random.rand) gen_state -> 's -> ('a Seq.seq) gen
+  val seq : ('a option, 's * Spec_Check_Random.rand) gen_state -> 's -> ('a Seq.seq) gen
 
   (*creates a generator that returns all elements of the sequence in order*)
   val of_seq : ('a option, 'a Seq.seq) gen_state
@@ -91,10 +91,10 @@ sig
 
 end
 
-structure Gen_Base : GEN_BASE =
+structure Spec_Check_Gen_Base : SPEC_CHECK_GEN_BASE =
 struct
 
-open Gen_Types
+open Spec_Check_Gen_Types
 
 val lift = pair
 
@@ -115,11 +115,11 @@ fun filter p gen r =
   in loop (gen r) end
 
 fun filter_bounded bound p gen r =
-  let fun loop 0 _ = raise Fail "Generator fails to satisfy predicate"
+  let fun loop 0 _ = raise Fail "Generator failed to satisfy predicate"
         | loop n (x, r) = if p x then (x, r) else loop (n-1) (gen r)
   in loop bound (gen r) end
 
-fun bernoulli p r = let val (x,r) = Random.real_unit r in (x <= p, r) end
+fun bernoulli p r = let val (x,r) = Spec_Check_Random.real_unit r in (x <= p, r) end
 
 fun binom_dist p n r =
   let
@@ -136,9 +136,9 @@ fun binom_dist p n r =
 
 fun range_int (min, max) r =
   if min > max
-  then raise Fail (Util.spaces ["Range_Int:", string_of_int min, ">", string_of_int max])
+  then raise Fail (Spec_Check_Util.spaces ["Range_Int:", string_of_int min, ">", string_of_int max])
   else
-    Random.real_unit r
+    Spec_Check_Random.real_unit r
     |>> (fn s => Int.min (min + Real.floor (s * Real.fromInt (max - min + 1)), max))
 
 fun one_of v r =
@@ -148,16 +148,16 @@ fun one_of v r =
 fun one_ofW (v : (int * 'a gen) vector) r =
   let
     val weight_total = Vector.foldl (fn ((freq,_),acc) => freq + acc) 0 v
-    fun selectGen _ (_, Util.Right gen) = Util.Right gen
-      | selectGen rand ((weight, gen), Util.Left acc) =
+    fun selectGen _ (_, Spec_Check_Util.Right gen) = Spec_Check_Util.Right gen
+      | selectGen rand ((weight, gen), Spec_Check_Util.Left acc) =
       let val acc = acc + weight
       in if acc < rand
-         then Util.Left acc
-         else Util.Right gen
+         then Spec_Check_Util.Left acc
+         else Spec_Check_Util.Right gen
       end
     val (threshhold, r) = range_int (1, weight_total) r
-    val gen = case Vector.foldl (selectGen threshhold) (Util.Left 0) v of
-        Util.Right gen => gen
+    val gen = case Vector.foldl (selectGen threshhold) (Spec_Check_Util.Left 0) v of
+        Spec_Check_Util.Right gen => gen
       | _ => raise Fail "Error in one_ofW - did you pass an empty vector or invalid frequencies?"
   in gen r end
 
@@ -188,7 +188,7 @@ fun unfold_while bool_g_of_elem g r =
 
 fun shuffle xs r =
   let
-    val (ns, r) = list (lift (length xs)) Random.real_unit r
+    val (ns, r) = list (lift (length xs)) Spec_Check_Random.real_unit r
     val real_ord = make_ord (op <=)
     val xs = ListPair.zip (ns, xs) |> sort (real_ord o apply2 fst) |> List.map snd
   in (xs, r) end
@@ -202,7 +202,7 @@ fun option bool_g g r =
 
 fun seq gen xq r =
   let
-    val (r1, r2) = Random.split r
+    val (r1, r2) = Spec_Check_Random.split r
     fun gen_next p () = case gen p of
       (NONE, _) => NONE
     | (SOME v, p) => SOME (v, Seq.make (gen_next p))
@@ -222,7 +222,7 @@ fun variant i g r =
   else
     let
       fun nth i r =
-        let val (r1, r2) = Random.split r
+        let val (r1, r2) = Spec_Check_Random.split r
         in if i = 0 then r1 else nth (i-1) r2 end
     in g (nth i r) end
 

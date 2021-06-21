@@ -5,31 +5,32 @@
 Random generators for chars and strings.
 *)
 
-signature GEN_TEXT = sig
+signature SPEC_CHECK_GEN_TEXT = sig
 
-  val range_char : char * char -> char Gen_Types.gen
-  val char : char Gen_Types.gen
+  val range_char : char * char -> char Spec_Check_Gen_Types.gen
+  val char : char Spec_Check_Gen_Types.gen                   
 
-  val char_of : string -> char Gen_Types.gen
+  val char_of : string -> char Spec_Check_Gen_Types.gen
 
-  val string : int Gen_Types.gen -> char Gen_Types.gen -> string Gen_Types.gen
+  val string : int Spec_Check_Gen_Types.gen -> char Spec_Check_Gen_Types.gen ->
+    string Spec_Check_Gen_Types.gen
 
-  val substring : string Gen_Types.gen -> substring Gen_Types.gen
+  val substring : string Spec_Check_Gen_Types.gen -> substring Spec_Check_Gen_Types.gen
 
-  val cochar : (char, 'b) Gen_Types.cogen
-  val costring : (string, 'b) Gen_Types.cogen
-  val cosubstring : (substring, 'b) Gen_Types.cogen
+  val cochar : (char, 'b) Spec_Check_Gen_Types.cogen
+  val costring : (string, 'b) Spec_Check_Gen_Types.cogen
+  val cosubstring : (substring, 'b) Spec_Check_Gen_Types.cogen
 
-  val digit : char Gen_Types.gen
-  val lowercase_letter : char Gen_Types.gen
-  val uppercase_letter : char Gen_Types.gen
-  val letter : char Gen_Types.gen
+  val digit : char Spec_Check_Gen_Types.gen
+  val lowercase_letter : char Spec_Check_Gen_Types.gen
+  val uppercase_letter : char Spec_Check_Gen_Types.gen
+  val letter : char Spec_Check_Gen_Types.gen
 end
 
-structure Gen_Text : GEN_TEXT =
+structure Spec_Check_Gen_Text : SPEC_CHECK_GEN_TEXT =
 struct
 
-open Gen_Base
+open Spec_Check_Gen_Base
 
 type char = Char.char
 type string = String.string

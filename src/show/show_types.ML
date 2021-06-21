@@ -4,12 +4,12 @@
 Shared type definitions for SpecCheck showable types.
 *)
 
-signature SHOW_TYPES =
+signature SPEC_CHECK_SHOW_TYPES =
 sig
   type 'a show = 'a -> Pretty.T
 end
 
-structure Show_Types : SHOW_TYPES =
+structure Spec_Check_Show_Types : SPEC_CHECK_SHOW_TYPES =
 struct
 
 type 'a show = 'a -> Pretty.T

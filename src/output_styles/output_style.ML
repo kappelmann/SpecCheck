@@ -2,19 +2,19 @@
     Author:     Lukas Bulwahn and Nicolai Schaffroth, TU Muenchen
     Author:     Christopher League
 
-Output styles for presenting Spec_Check's results.
+Output styles for presenting SpecCheck results.
 *)
 
-signature OUTPUT_STYLE =
+signature SPEC_CHECK_DEFAULT_OUTPUT_STYLE =
 sig
-  include OUTPUT_STYLE_TYPES
+  include SPEC_CHECK_OUTPUT_STYLE_TYPES
   val default : 'a output_style
 end
 
-structure Output_Style : OUTPUT_STYLE =
+structure Spec_Check_Default_Output_Style : SPEC_CHECK_DEFAULT_OUTPUT_STYLE =
 struct
 
-open Output_Style_Types
-val default = Output_Style_Custom.style
+open Spec_Check_Output_Style_Types
+val default = Spec_Check_Output_Style_Custom.style
 
 end

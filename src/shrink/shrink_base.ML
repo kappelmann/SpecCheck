@@ -4,9 +4,9 @@
 Basic utility functions to create and combine shrink functions.
 *)
 
-signature SHRINK_BASE =
+signature SPEC_CHECK_SHRINK_BASE =
 sig
-  include SHRINK_TYPES
+  include SPEC_CHECK_SHRINK_TYPES
 
   val none : 'a shrink
 
@@ -23,9 +23,9 @@ sig
 
 end
 
-structure Shrink_Base : SHRINK_BASE =
+structure Spec_Check_Shrink_Base : SPEC_CHECK_SHRINK_BASE =
 struct
-open Shrink_Types
+open Spec_Check_Shrink_Types
 
 fun none _ = Seq.empty
 
@@ -73,19 +73,17 @@ fun list _ [] = Seq.single []
 
 fun list' xs = list none xs
 
-fun term t =
-  case t of
-    t1 $ t2 =>
-      let
-        val s1 = Seq.append (term t1) (Seq.single t1)
-        val s2 = Seq.append (term t2) (Seq.single t2)
-        val s3 = Seq.map (op$) (product term term (t1, t2))
-      in Seq.append s1 (Seq.append s2 s3) end
-  | Abs (x, T, t) =>
+fun term (t1 $ t2) =
+    let
+      val s1 = Seq.append (term t1) (Seq.single t1)
+      val s2 = Seq.append (term t2) (Seq.single t2)
+      val s3 = Seq.map (op$) (product term term (t1, t2))
+    in Seq.append s1 (Seq.append s2 s3) end
+  | term (Abs (x, T, t)) =
       let
         val s1 = Seq.append (term t) (Seq.single t)
         val s2 = Seq.map (fn t => Abs (x, T, t)) (term t)
       in Seq.append s1 s2 end
-  | _ => Seq.empty
+  | term _ = Seq.empty
 
 end

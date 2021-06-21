@@ -1,14 +1,19 @@
-theory Examples
-imports Spec_Check_Dynamic.Dynamic
+\<^marker>\<open>creator "Kevin Kappelmann"\<close>
+section \<open>Examples\<close>
+theory Spec_Check_Examples
+imports Spec_Check_Dynamic.Spec_Check_Dynamic
 begin
 
-section \<open>List examples\<close>
+subsection \<open>List examples\<close>
 
 ML \<open>
 open Spec_Check
 open Spec_Check_Dynamic
-structure Gen = Generator
-structure Prop = Property
+structure Gen = Spec_Check_Generator
+structure Prop = Spec_Check_Property
+structure Show = Spec_Check_Show
+structure Shrink = Spec_Check_Shrink
+structure Random = Spec_Check_Random
 \<close>
 
 ML_command \<open>
@@ -47,7 +52,7 @@ ML_command \<open>
 check_dynamic @{context} "ALL xs. rev (rev xs) = xs";
 \<close>
 
-section \<open>AList Specification\<close>
+subsection \<open>AList Specification\<close>
 
 ML_command \<open>
 (* map_entry applies the function to the element *)
@@ -84,7 +89,7 @@ check_dynamic @{context} (implode
    "(if AList.defined (op =) xs k then AList.lookup (op =) xs k else SOME v))"])
 \<close>
 
-section \<open>Examples on Types and Terms\<close>
+subsection \<open>Examples on Types and Terms\<close>
 
 ML_command \<open>
 check_dynamic @{context} "ALL f g t. map_types (g o f) t = (map_types f o map_types g) t";

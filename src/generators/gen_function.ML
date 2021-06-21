@@ -1,29 +1,28 @@
-(*  Title:      Tools/Spec_Check/generators/gen_functions.ML
+(*  Title:      Tools/Spec_Check/generators/gen_function.ML
     Author:     Lukas Bulwahn and Nicolai Schaffroth, TU Muenchen
     Author:     Christopher League
 
-Random generators for Isabelle/ML's types.
+Random generators for functions.
 *)
 
-signature GEN_FUNCTION = sig
-  val function : ('a, 'b) Gen_Types.cogen -> 'b Gen_Types.gen -> ('a -> 'b) Gen_Types.gen
-  val function' : 'b Gen_Types.gen -> (''a -> 'b) Gen_Types.gen
+signature SPEC_CHECK_GEN_FUNCTION = sig
+  val function : ('a, 'b) Spec_Check_Gen_Types.cogen -> 'b Spec_Check_Gen_Types.gen ->
+    ('a -> 'b) Spec_Check_Gen_Types.gen
+  val function' : 'b Spec_Check_Gen_Types.gen -> (''a -> 'b) Spec_Check_Gen_Types.gen
 end
 
-structure Gen_Function : GEN_FUNCTION =
+structure Spec_Check_Gen_Function : SPEC_CHECK_GEN_FUNCTION =
 struct
-
-open Gen_Base
 
 fun function cogen gen r =
   let
-    val (r1, r2) = Random.split r
+    val (r1, r2) = Spec_Check_Random.split r
     fun g x = fst (cogen x gen r1)
   in (g, r2) end
 
 fun function' gen r =
   let
-    val (external, internal) = Random.split r
+    val (internal, external) = Spec_Check_Random.split r
     val seed = Unsynchronized.ref internal
     val table = Unsynchronized.ref []
     fun new_entry k =

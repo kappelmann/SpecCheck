@@ -1,7 +1,7 @@
-theory Output_Style
+theory Spec_Check_Output_Style
 imports
   Spec_Check_Base
-  Show
+  Spec_Check_Show
 begin
 
 ML_file \<open>output_style_types.ML\<close>

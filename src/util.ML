@@ -4,7 +4,7 @@
 Some utility functions that maybe should be put somewhere else in Pure.
 *)
 
-signature UTIL =
+signature SPEC_CHECK_UTIL =
 sig
 
 datatype ('a,'b) either = Left of 'a | Right of 'b
@@ -16,7 +16,7 @@ val pwarning : string -> unit
 
 end
 
-structure Util : UTIL =
+structure Spec_Check_Util : SPEC_CHECK_UTIL =
 struct
 
 datatype ('a,'b) either = Left of 'a | Right of 'b

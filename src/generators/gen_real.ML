@@ -5,32 +5,33 @@
 Random generators for reals.
 *)
 
-signature GEN_REAL = sig
+signature SPEC_CHECK_GEN_REAL = sig
 
-  (*range_real (x,y) r returns a value in [x;y]*)
-  val range_real : real * real -> real Gen_Types.gen
+  (*range_real (x,y) r returns a value in [x, y]*)
+  val range_real : real * real -> real Spec_Check_Gen_Types.gen
 
-  val real : real Gen_Types.gen
+  val real : real Spec_Check_Gen_Types.gen
 
-  val real_pos : real Gen_Types.gen
-  val real_neg : real Gen_Types.gen
+  val real_pos : real Spec_Check_Gen_Types.gen
+  val real_neg : real Spec_Check_Gen_Types.gen
 
-  val real_nonneg : real Gen_Types.gen
-  val real_nonpos : real Gen_Types.gen
+  val real_nonneg : real Spec_Check_Gen_Types.gen
+  val real_nonpos : real Spec_Check_Gen_Types.gen
 
-  val real_finite : real Gen_Types.gen
+  val real_finite : real Spec_Check_Gen_Types.gen
 end
 
-structure Gen_Real : GEN_REAL =
+structure Spec_Check_Gen_Real : SPEC_CHECK_GEN_REAL =
 struct
 
-open Gen_Base
-open Gen_Text
+open Spec_Check_Gen_Base
+open Spec_Check_Gen_Text
 
 fun range_real (min, max) r =
   if min > max
-  then raise Fail (Util.spaces ["Range_Real:", string_of_real min, ">", string_of_real max])
-  else Random.real_unit r |>> (fn s => min + (s * max - s * min))
+  then
+    raise Fail (Spec_Check_Util.spaces["Range_Real:", string_of_real min, ">", string_of_real max])
+  else Spec_Check_Random.real_unit r |>> (fn s => min + (s * max - s * min))
 
 val digits = string (range_int (1, Real.precision)) (range_char (#"0", #"9"))
 

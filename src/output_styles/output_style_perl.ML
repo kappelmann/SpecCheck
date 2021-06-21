@@ -5,10 +5,10 @@
 Perl output styles for SpecCheck.
 *)
 
-structure Output_Style_Perl : OUTPUT_STYLE =
+structure Spec_Check_Output_Style_Perl : SPEC_CHECK_OUTPUT_STYLE =
 struct
 
-open Configuration
+open Spec_Check_Configuration
 open Spec_Check_Base
 
 fun style show_opt ctxt name timing result =
@@ -40,15 +40,16 @@ fun style show_opt ctxt name timing result =
         SOME show =>
           (case maybe_sort (map (Pretty.string_of o show) counterexamples) of
             [] => ()
-          | es => (Util.pwarning "Counterexamples:"; fold (fn x => fn _ => Util.pwarning x) es ()))
+          | es => (Spec_Check_Util.pwarning "Counterexamples:";
+              fold (fn x => fn _ => Spec_Check_Util.pwarning x) es ()))
       | NONE => ()
 
   in
     case result of
-      Success _ => Util.pwriteln result_string
-    | Gave_Up _ => Util.pwarning result_string
+      Success _ => Spec_Check_Util.pwriteln result_string
+    | Gave_Up _ => Spec_Check_Util.pwarning result_string
     | Failure (_, failure_data) =>
-        (Util.pwarning result_string; show_counterexamples (#counterexamples failure_data))
+        (Spec_Check_Util.pwarning result_string; show_counterexamples (#counterexamples failure_data))
   end
 
 end

@@ -24,7 +24,7 @@ Examples can be found in `examples/`.
 
 ## Notes
 
-SpecCheck is based on the [QCheck](https://github.com/league/qcheck), a testing framework for Standard ML by
+SpecCheck is based on [QCheck](https://github.com/league/qcheck), a testing framework for Standard ML by
 [Christopher League](https://contrapunctus.net/league/).
 As Isabelle/ML provides a rich and uniform ML platform, some features where removed or adapted, in particular:
 

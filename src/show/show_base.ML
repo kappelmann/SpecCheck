@@ -4,9 +4,9 @@
 Basic utility functions to create and combine show functions.
 *)
 
-signature SHOW_BASE =
+signature SPEC_CHECK_SHOW_BASE =
 sig
-  include SHOW_TYPES
+  include SPEC_CHECK_SHOW_TYPES
 
   val none : 'a show
   val char : char show
@@ -23,9 +23,10 @@ sig
 
 end
 
-structure Show_Base : SHOW_BASE =
+structure Spec_Check_Show_Base : SPEC_CHECK_SHOW_BASE =
 struct
-open Show_Types
+
+open Spec_Check_Show_Types
 
 fun none _ = Pretty.str "<NO_SHOW>"
 val char = Pretty.enclose "'" "'" o single o Pretty.str o Char.toString

@@ -11,7 +11,7 @@ they are an an improved version of the so-called "minimal standard" (MINSTD) gen
 This file only contains those functions that rely on the internal integer representation of rand.
 *)
 
-signature RANDOM =
+signature SPEC_CHECK_RANDOM =
 sig
   type rand
   (*creates a new random seed*)
@@ -29,7 +29,7 @@ sig
   val split : rand -> rand * rand
 end
 
-structure Random : RANDOM  =
+structure Spec_Check_Random : SPEC_CHECK_RANDOM  =
 struct
 
 type rand = int

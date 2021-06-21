@@ -14,18 +14,19 @@ directories
   shrink
 
 theories
-  Generators
-  Output_Style
-  Show
+  Spec_Check_Generators
+  Spec_Check_Output_Style
+  Spec_Check_Show
+  Spec_Check_Shrink
   Spec_Check
 
 session Spec_Check_Dynamic in "src/dynamic" = "Spec_Check2" +
 description
-\<open>Dynamical generation of generators and show functions for SpecCheck tests specified in string
+\<open>Dynamic generation of generators and show functions for SpecCheck tests specified in string
 formats.\<close>
 theories
-  Dynamic
+  Spec_Check_Dynamic
 
 session Spec_Check_Examples in "src/examples" = "Spec_Check_Dynamic" +
 theories
-  Examples
+  Spec_Check_Examples

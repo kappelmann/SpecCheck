@@ -1,6 +1,11 @@
+\<^marker>\<open>creator "Kevin Kappelmann"\<close>
+section \<open>SpecCheck Base\<close>
 theory Spec_Check_Base
 imports Pure
 begin
+
+paragraph \<open>Summary\<close>
+text \<open>Basic setup for SpecCheck.\<close>
 
 ML_file \<open>util.ML\<close>
 

@@ -4,21 +4,21 @@
 
 Shared types for SpecCheck output styles.
 *)
-signature OUTPUT_STYLE_TYPES =
+signature SPEC_CHECK_OUTPUT_STYLE_TYPES =
 sig
-  type 'a output_style = 'a Show.show option -> Proof.context -> string -> Timing.timing ->
-    'a Spec_Check_Base.result -> unit
+  type 'a output_style = 'a Spec_Check_Show.show option -> Proof.context -> string ->
+    Timing.timing -> 'a Spec_Check_Base.result -> unit
 end
 
-structure Output_Style_Types : OUTPUT_STYLE_TYPES =
+structure Spec_Check_Output_Style_Types : SPEC_CHECK_OUTPUT_STYLE_TYPES =
 struct
 
-type 'a output_style = 'a Show.show option -> Proof.context -> string -> Timing.timing ->
+type 'a output_style = 'a Spec_Check_Show.show option -> Proof.context -> string -> Timing.timing ->
   'a Spec_Check_Base.result -> unit
 
 end
 
-signature OUTPUT_STYLE =
+signature SPEC_CHECK_OUTPUT_STYLE =
 sig
-  val style : 'a Output_Style_Types.output_style
+  val style : 'a Spec_Check_Output_Style_Types.output_style
 end

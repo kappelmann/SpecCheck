@@ -1,4 +1,11 @@
-(*TODO: not very well tested*)
+(*  Title:      Tools/Spec_Check/dynamic/spec_check_dynamic.ML
+    Author:     Lukas Bulwahn and Nicolai Schaffroth, TU Muenchen
+
+This file allows to run SpecCheck tests specified as a string representing ML code.
+
+TODO: this module is not very well tested.
+*)
+
 signature SPEC_CHECK_DYNAMIC =
 sig
   val check_dynamic : Proof.context -> string -> unit
@@ -22,7 +29,7 @@ fun determine_type ctxt s =
         (fn () =>
           ML_Compiler0.ML context
             {line = 0, file = "generated code", verbose = true, debug = false} s) ()
-  in Gen_Dynamic.parse_pred (! return) end;
+  in Spec_Check_Dynamic_Construct.parse_pred (! return) end;
 
 (*call the compiler and run the test*)
 fun run_test ctxt s =
@@ -60,7 +67,7 @@ fun gen_check_property check ctxt s =
     val (_, ty) = determine_type ctxt func
   in run_test ctxt (check ctxt "Dynamic Test" (ty, func)) end;
 
-val check_dynamic = gen_check_property Gen_Dynamic.build_check
+val check_dynamic = gen_check_property Spec_Check_Dynamic_Construct.build_check
 (*val check_property_safe = gen_check_property Construct_Gen.safe_check*)
 
 (*perform test for specification function*)

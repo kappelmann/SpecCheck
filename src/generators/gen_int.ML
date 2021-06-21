@@ -5,24 +5,25 @@
 Random generators for ints.
 *)
 
-signature GEN_INT = sig
+signature SPEC_CHECK_GEN_INT = sig
 
   (*pos m generates an integer in [1, m]*)
-  val pos : int -> int Gen_Types.gen
+  val pos : int -> int Spec_Check_Gen_Types.gen
   (*neg m generates an integer in [m, 1]*)
-  val neg : int -> int Gen_Types.gen
+  val neg : int -> int Spec_Check_Gen_Types.gen
   (*nonneg m generates an integer in [0, m]*)
-  val nonneg : int -> int Gen_Types.gen
+  val nonneg : int -> int Spec_Check_Gen_Types.gen
   (*nonpos m generates an integer in [m, 0]*)
-  val nonpos : int -> int Gen_Types.gen
+  val nonpos : int -> int Spec_Check_Gen_Types.gen
 
-  val coint : (int, 'b) Gen_Types.cogen
+  val coint : (int, 'b) Spec_Check_Gen_Types.cogen
+
 end
 
-structure Gen_Int : GEN_INT =
+structure Spec_Check_Gen_Int : SPEC_CHECK_GEN_INT =
 struct
 
-open Gen_Base
+open Spec_Check_Gen_Base
 
 fun pos m = range_int (1, m)
 fun neg m = range_int (m, ~1)
