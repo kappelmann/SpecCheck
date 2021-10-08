@@ -1,3 +1,5 @@
+**SpecCheck is now part of the AFP. Please refer to https://www.isa-afp.org/entries/SpecCheck.html**
+
 # SpecCheck
 
 SpecCheck is a [QuickCheck](https://en.wikipedia.org/wiki/QuickCheck)-like testing framework for Isabelle/ML.
